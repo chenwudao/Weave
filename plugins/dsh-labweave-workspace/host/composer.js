@@ -307,6 +307,7 @@ export function registerComposer(ctx, { refs, rows, call, ownerRoute, delegation
         content: [{ type: 'text', text: context }],
       })
       if (!actors.length || assessment?.mode === 'CLARIFY' && (!global || assessment.research)) continue
+      if (global && ['confirm', 'named_only'].includes(assessment?.creation?.kind)) continue
       if (assessment?.answers?.length && assessment.mode !== 'EXECUTE') continue
       const task = text.replace(mentionPattern, (_all, label) => label ? '@' + label : '').trim()
       const answerScope = assessment.answers?.length

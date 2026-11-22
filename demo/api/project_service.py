@@ -5,10 +5,13 @@ import base64
 import codecs
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
+from unicodedata import normalize
 from urllib.parse import urlsplit
 from uuid import uuid4
 from xml.etree import ElementTree
@@ -334,6 +337,57 @@ def _canvas_link_records(item, rails):
     return [record for rail in rails for record in item["rails"].get(rail, [])]
 
 
+def canvas_card_content(card):
+    def clean(value):
+        return normalize("NFC", value.replace("\r\n", "\n").strip()) if isinstance(value, str) else ""
+    return clean(card.get("title")), clean(card.get("text"))
+
+
+def check_canvas_card_duplicate(card, records, *, same_task=False):
+    title, body = canvas_card_content(card)
+    if body and any(text == body and (same_task or heading == title)
+                    for heading, text in map(canvas_card_content, records)):
+        raise workspace.WorkspaceError(409, "画布已有相同内容的卡片。请引用已有成果，或补充这张卡片独有的内容。")
+
+
+def _canvas_link_targets(entry):
+    return {"branch": [entry.get("parentId")], "dependency": entry.get("dependsOn") or [],
+            "related": entry.get("relatedIds") or []}
+
+
+def _prune_canvas_link_notes(entry):
+    if "linkNotes" not in entry:
+        return
+    targets = _canvas_link_targets(entry)
+    notes = {kind: {target: text for target, text in group.items() if target in targets[kind]}
+             for kind, group in entry["linkNotes"].items()}
+    notes = {kind: group for kind, group in notes.items() if group}
+    if notes:
+        entry["linkNotes"] = notes
+    else:
+        entry.pop("linkNotes", None)
+
+
+def _save_canvas_link_note(entry, value, records, external_parent):
+    if not isinstance(value, dict):
+        raise workspace.WorkspaceError(400, "请指定要说明的连线。")
+    kind, target = value.get("kind"), value.get("target")
+    targets = _canvas_link_targets(entry)
+    other = next((record for record in records if record["id"] == target), None)
+    if (not isinstance(kind, str) or not isinstance(target, str) or target not in targets.get(kind, ())
+            or not (other or (kind == "branch" and external_parent))):
+        raise workspace.WorkspaceError(409, "这条连线已变化，请刷新后重试。")
+    if kind == "related" and other["id"] < entry["id"] and entry["id"] in (other.get("relatedIds") or []):
+        entry, target = other, entry["id"]
+    notes = entry.setdefault("linkNotes", {}).setdefault(kind, {})
+    text = workspace.text(value.get("text"), 2000)
+    if text:
+        notes[target] = text
+    else:
+        notes.pop(target, None)
+    _prune_canvas_link_notes(entry)
+
+
 def _entry_relations(args, entry, records):
     if "relatedIds" not in args:
         return
@@ -355,6 +409,7 @@ def _entry_relations(args, entry, records):
             record["relatedIds"] = [*backlinks, identity]
         elif record["id"] not in selected and identity in backlinks:
             record["relatedIds"] = [other for other in backlinks if other != identity]
+            _prune_canvas_link_notes(record)
     entry["relatedIds"] = list(dict.fromkeys(related))
 
 
@@ -470,7 +525,8 @@ def create_entry(project_id, rail, args):
     policy_version = args.get("policyVersion")
     workflow_dependencies = args.get("workflowDependencies")
     link_fields = set(args) & {"parentId", "dependsOn", "relatedIds"}
-    link_rails = _canvas_link_rails(project_id, rail) if link_fields else {rail}
+    check_duplicate = args.get("checkCanvasDuplicate") is True
+    link_rails = _canvas_link_rails(project_id, rail) if link_fields or check_duplicate else {rail}
 
     def verify_policy(db):
         if policy_version is not None:
@@ -490,6 +546,8 @@ def create_entry(project_id, rail, args):
         if "sources" in args:
             entry["sources"] = record_sources(project_id, args["sources"], item)
         _entry_elements(args, entry, extension, records)
+        if check_duplicate:
+            check_canvas_card_duplicate(entry, _canvas_link_records(item, link_rails))
         if link_fields:
             candidates = _canvas_link_records(item, link_rails)
             _check_canvas_direction(entry, item, rail, candidates, external_parent, edited=link_fields)
@@ -508,8 +566,10 @@ def update_entry(project_id, rail, args):
     bot = next((feature for feature in features.list_features(project_id, project_id) if feature["id"] == rail), {}) if rail.startswith("feat_") else {}
     extension = bot.get("extension")
     is_goal = rail == "goals" or bot.get("paradigm") == "goals" or bool(extension and extension["base"] == "goals")
-    external_parent = _external_canvas_parent(project_id, rail, args.get("parentId"))
-    link_fields = set(args) & {"parentId", "dependsOn", "relatedIds"}
+    link_note = args.get("linkNote")
+    external_target = link_note.get("target") if isinstance(link_note, dict) and link_note.get("kind") == "branch" else None
+    external_parent = _external_canvas_parent(project_id, rail, args.get("parentId", external_target))
+    link_fields = set(args) & {"parentId", "dependsOn", "relatedIds", "linkNote"}
     link_rails = _canvas_link_rails(project_id, rail) if link_fields else {rail}
 
     def verify_cluster(_db):
@@ -550,6 +610,10 @@ def update_entry(project_id, rail, args):
                 entry.pop("parentId", None)
             _check_canvas_direction(entry, item, rail, candidates, external_parent, edited=link_fields)
             _entry_relations(args, entry, candidates)
+            _prune_canvas_link_notes(entry)
+            if "linkNote" in args:
+                _save_canvas_link_note(entry, link_note, candidates, _active_canvas_parent(
+                    item, rail, external_target, external_parent) if external_target else False)
         if is_goal:
             if "due" in args:
                 entry["due"] = args["due"]
@@ -589,6 +653,7 @@ def detach_canvas_parent(item, rail, entry_id):
     for entry in item["rails"].get(rail, []):
         if entry.get("parentId") == entry_id:
             entry.pop("parentId", None)
+            _prune_canvas_link_notes(entry)
 
 
 def delete_entry(project_id, rail, entry_id):
@@ -613,6 +678,7 @@ def delete_entry(project_id, rail, entry_id):
                 entry["dependsOn"] = [dep for dep in dependencies if dep != entry_id]
             if entry_id in (entry.get("relatedIds") or []):
                 entry["relatedIds"] = [identity for identity in entry["relatedIds"] if identity != entry_id]
+            _prune_canvas_link_notes(entry)
         for entry in item["rails"][rail]:
             elements = entry.get("elements") or {}
             for name in reference_fields:
@@ -719,6 +785,29 @@ def _generated_files(root):
                 relative = path.relative_to(root).as_posix()
                 identity = "generated_" + sha256(f"{root.name}/{relative}".encode("utf-8")).hexdigest()
                 yield identity, relative, path
+
+
+def _remove_generated_directory(directory):
+    def retry_readonly(remove, path, error):
+        if getattr(error, "winerror", None) != 5 or remove not in (os.unlink, os.rmdir):
+            raise error
+        target = Path(path)
+        info = target.lstat()
+        attributes = getattr(info, "st_file_attributes", 0)
+        if (not attributes & stat.FILE_ATTRIBUTE_READONLY or attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                or not target.resolve().is_relative_to(directory)):
+            raise error
+        target.chmod(info.st_mode | stat.S_IWRITE)
+        try:
+            remove(path)
+        except OSError:
+            try:
+                target.chmod(info.st_mode)
+            except OSError:
+                pass
+            raise
+
+    shutil.rmtree(directory, onexc=retry_readonly)
 
 
 def stored_files(project_id):
@@ -932,11 +1021,22 @@ def delete_project(project_id, *, session_ids=None):
             if session_ids:
                 import session_cleanup
                 session_cleanup.enqueue(db, session_ids)
+            directory = root
             try:
                 for directory in _generated_directories(root):
-                    shutil.rmtree(directory)
+                    _remove_generated_directory(directory)
             except OSError as exc:
-                raise workspace.WorkspaceError(423, "无法删除项目生成的文件，请关闭占用文件的程序后重试。") from exc
+                target = Path(exc.filename) if exc.filename else directory
+                relative = target.relative_to(root) if target.is_relative_to(root) else directory.relative_to(root)
+                label = relative.as_posix() if relative.parts else "项目目录"
+                code = getattr(exc, "winerror", None)
+                if code in (32, 33):
+                    detail = "路径正在使用。请停止相关任务或关闭占用该路径的程序后重试。"
+                elif isinstance(exc, PermissionError):
+                    detail = "系统拒绝访问。请检查该路径的删除权限。"
+                else:
+                    detail = "系统无法完成删除。请检查该路径后重试。"
+                raise workspace.WorkspaceError(423, f"无法删除项目生成内容「{label}」。{detail}") from exc
 
         saved["state"]["projects"] = remaining
         try:

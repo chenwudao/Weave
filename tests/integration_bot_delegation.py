@@ -129,8 +129,15 @@ def main():
                 draft = marker + "_draft"
                 if "WEAVE_FOLLOW_UP" in assignment:
                     assert marker == "PAPER_BETA" and "Prior assignment being followed up" in assignment
-                    command = ("followup-result", "structured_output", {"title": "跟进交付", "answer": "已按补充要求再次核对。",
-                                                                       "outcome": "completed"})
+                    if "followup-draft" not in outputs:
+                        command = ("followup-draft", "labweave_bot_canvas_draft", {
+                            "key": "appendix", "title": "附录核对草稿", "text": "已找到需要核对的附录。",
+                            "category": "附录",
+                        })
+                    else:
+                        command = ("followup-result", "structured_output", {
+                            "title": "跟进交付", "answer": "已按补充要求再次核对。", "outcome": "completed",
+                        })
                 elif draft not in outputs:
                     assert "labweave_bot_canvas_draft" in tools
                     assert "WEAVE_DELEGATION_PROBE" in user_text

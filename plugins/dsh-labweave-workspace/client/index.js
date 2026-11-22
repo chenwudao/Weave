@@ -788,6 +788,8 @@ window.__ModuleLoader__.load({
       .lw-icon{display:inline-block;width:16px;height:16px;flex:none}
       .lw-tree .lw-tool{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:var(--dsw-radius-sm,6px);padding:0;flex:none;color:var(--dsw-alias-label-tertiary)}
       .lw-tree .lw-tool:hover{color:var(--dsw-alias-label-primary)}
+      .lw-tree .lw-cluster-toggle{position:relative}
+      .lw-cluster-toggle .lw-activity-dot{position:absolute;inset-inline-end:1px;inset-block-start:2px}
       .lw-tree .lw-tool-danger:hover{color:var(--dsw-alias-state-error-primary,#dc2626);background:var(--dsw-alias-interactive-bg-hover-danger,rgba(220,38,38,.1))}
       .lw-row-tools{display:inline-flex;align-items:center;gap:1px;flex:none;opacity:.55;transition:opacity .12s ease}
       .lw-row:hover .lw-row-tools,.lw-row:focus-within .lw-row-tools,.lw-row:has([aria-current="page"]) .lw-row-tools{opacity:1}
@@ -801,17 +803,17 @@ window.__ModuleLoader__.load({
       .lw-rail-btn,[data-lw-assistant-activity]{position:relative}
       .lw-rail-btn .lw-activity-dot,[data-lw-assistant-activity]::after{position:absolute;inset-inline-end:4px;inset-block-start:4px;pointer-events:none}
       [data-lw-assistant-activity]::after{content:"";inset-inline-end:8px;inset-block-start:8px}
-      .lw-sessions summary .lw-activity-dot{margin-inline-start:7px;vertical-align:middle}
-      .lw-completion-stack{position:fixed;z-index:99;right:var(--lw-completion-right,16px);inset-block-end:max(16px,env(safe-area-inset-bottom),var(--lw-completion-clearance,0px));display:grid;gap:8px;inline-size:min(328px,calc(var(--lw-completion-max,100%) - 32px));pointer-events:none}
-      .lw-completion-toast{pointer-events:auto;display:flex;align-items:flex-start;gap:4px;padding:6px;border:var(--dsh-hairline-width,.5px) solid var(--dsw-alias-border-l3,#8885);border-radius:var(--dsw-radius-lg,14px);background:var(--dsw-specific-menu,var(--dsw-alias-bg-layer-2,Canvas));box-shadow:var(--dsw-elevation-panel,0 8px 26px #0002);backdrop-filter:var(--dsw-menu-backdrop-filter,none);color:var(--dsw-alias-label-primary,CanvasText);font:inherit}
+      .lw-completion-stack{position:fixed;z-index:99;left:var(--lw-completion-center,50%);transform:translateX(-50%);inset-block-end:max(16px,env(safe-area-inset-bottom),var(--lw-completion-clearance,0px));display:grid;grid-auto-rows:1fr;gap:8px;inline-size:min(328px,calc(var(--lw-completion-max,100%) - 32px));pointer-events:none}
+      .lw-completion-toast{pointer-events:auto;display:flex;align-items:center;gap:4px;padding:6px;border:var(--dsh-hairline-width,.5px) solid var(--dsw-alias-border-l3,#8885);border-radius:var(--dsw-radius-lg,14px);background:var(--dsw-specific-menu,var(--dsw-alias-bg-layer-2,Canvas));box-shadow:var(--dsw-elevation-panel,0 8px 26px #0002);backdrop-filter:var(--dsw-menu-backdrop-filter,none);color:var(--dsw-alias-label-primary,CanvasText);font:inherit}
       .lw-completion-toast button{font:inherit;color:inherit;border:0;background:transparent;border-radius:var(--dsw-radius-md,8px);cursor:pointer}
       .lw-completion-toast button:hover{background:var(--dsw-alias-interactive-bg-hover,#8882)}
       .lw-completion-toast-main{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:start;padding:7px 8px}
-      .lw-completion-toast-main>.lw-icon{box-sizing:content-box;padding:5px;border-radius:50%;color:var(--dsw-alias-state-success-primary,#16a34a);background:color-mix(in srgb,currentColor 12%,transparent)}
+      .lw-completion-toast-main>.lw-icon{flex:none;box-sizing:content-box;padding:5px;border-radius:50%;color:var(--dsw-alias-state-success-primary,#16a34a);background:color-mix(in srgb,currentColor 12%,transparent)}
       .lw-completion-toast-text{display:grid;gap:2px;min-width:0;line-height:1.35}
+      .lw-completion-toast-text>*{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .lw-completion-toast-text strong{font-size:var(--lw-ui-base,14px);font-weight:600}
-      .lw-completion-toast-text small{font-size:var(--lw-ui-sm,12px);color:var(--dsw-alias-label-secondary,GrayText);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .lw-completion-toast .lw-tool{display:grid;place-items:center;width:28px;height:28px;padding:0;color:var(--dsw-alias-label-secondary,GrayText)}
+      .lw-completion-toast-text small{font-size:var(--lw-ui-sm,12px);color:var(--dsw-alias-label-secondary,GrayText)}
+      .lw-completion-toast .lw-tool{flex:none;display:grid;place-items:center;width:28px;height:28px;padding:0;color:var(--dsw-alias-label-secondary,GrayText)}
       .lw-tier{margin:1px 0 5px 14px;padding-inline-start:7px;border-inline-start:.5px solid var(--dsw-alias-border-l3,#8884)}
       .lw-tree .lw-tier .lw-icon{width:15px;height:15px}
       .lw-sessions{margin-inline-start:19px}
@@ -1027,10 +1029,25 @@ window.__ModuleLoader__.load({
       /* Right Sidebar Links & Clean Hero Chrome */
       .lw-hero-ctx-btn{border:0;background:transparent;padding:2px 6px;border-radius:6px;font:inherit;font-size:var(--lw-ui-sm);line-height:1.45;color:var(--dsw-alias-label-secondary);cursor:pointer;text-align:start;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .lw-hero-ctx-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
-      .lw-project-file-changes{box-sizing:border-box;width:100%;max-width:740px;margin:0 auto;padding:4px 10px;color:var(--dsw-alias-label-secondary);font-size:var(--lw-ui-sm)}
-      .lw-project-file-changes summary{cursor:pointer;padding:4px 0}
-      .lw-project-file-changes ul{list-style:none;margin:4px 0 0;padding:0;max-height:180px;overflow:auto}
-      .lw-project-file-changes li{display:flex;align-items:baseline;gap:8px;padding:4px 0;overflow-wrap:anywhere}
+      .lw-project-file-changes{display:flex;flex:none;flex-direction:column;box-sizing:border-box;width:min(100%,740px);min-width:0;margin:4px auto 0;overflow:hidden;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg,12px);background:var(--dsw-alias-bg-layer-1,Canvas);color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family,inherit)}
+      .lw-file-change-header{display:flex;flex:none;align-items:center;gap:10px;box-sizing:border-box;height:60px;padding:8px 10px;border:0;background:var(--dsw-alias-card-fill,var(--dsw-alias-bg-layer-1));color:inherit;font:inherit;text-align:start;cursor:pointer}
+      .lw-file-change-header:is(:hover,:focus-visible){background:var(--dsw-alias-card-fill-hover,var(--dsw-alias-interactive-bg-hover))}
+      .lw-project-file-changes button:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
+      .lw-file-change-tile{display:grid;flex:none;place-items:center;box-sizing:border-box;width:40px;height:40px;border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-card-tile-fill)}
+      .lw-file-change-tile .lw-icon{width:20px;height:20px}
+      .lw-file-change-headline{display:flex;flex:1;flex-direction:column;min-width:0;font-size:13px;font-weight:500;line-height:20px}
+      .lw-file-change-count{color:var(--dsw-alias-label-tertiary);font-size:10px;font-weight:400;line-height:16px}
+      .lw-file-change-chevron{display:inline-flex;color:var(--dsw-alias-label-tertiary);transform:rotate(90deg)}
+      .lw-file-change-header[aria-expanded=true] .lw-file-change-chevron{transform:rotate(-90deg)}
+      .lw-project-file-changes ul{list-style:none;margin:0;padding:0;max-height:min(25vh,196px);overflow:auto;border-top:.5px solid var(--dsw-alias-border-l2)}
+      .lw-file-change-row{display:flex;align-items:center;justify-content:space-between;gap:10px;box-sizing:border-box;width:100%;min-width:0;min-height:24px;margin:0;padding:7px 18px 7px 14px;border:0;background:transparent;color:var(--dsw-alias-label-tertiary);font:inherit;font-size:12px;line-height:18px;text-align:start}
+      button.lw-file-change-row{cursor:pointer}
+      button.lw-file-change-row:is(:hover,:focus-visible){background:var(--dsw-alias-interactive-bg-hover)}
+      .lw-file-change-row [data-path]{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lw-file-change-row [data-action]{flex:none;font-size:11px;white-space:nowrap}
+      .lw-file-change-row [data-action=added]{color:var(--dsw-alias-state-success-primary)}
+      .lw-file-change-row [data-action=removed]{color:var(--dsw-alias-state-error-primary)}
+      @media(pointer:coarse){button.lw-file-change-row{min-height:44px}}
       [data-conversation-content]{container-type:inline-size;container-name:lwchat}
       [data-content-phase="hero"] [class*="heroWorkspaceRow"]>:first-child{display:none}
       [data-content-phase="hero"] [data-composer-card]:has([data-composer-input][aria-haspopup="menu"]){display:none}
@@ -1343,9 +1360,15 @@ window.__ModuleLoader__.load({
       .lw-pane-close .lw-icon{width:16px;height:16px}
 
       .lw-fbot-shell{flex:1;min-height:0;min-width:0;display:grid;grid-template-columns:minmax(0,1fr);position:relative;overflow:hidden}
-      .lw-fbot-main{display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;font-family:var(--dsw-font-family,inherit);--lw-bot-gutter:clamp(14px,3vw,28px)}
-      .lw-fbot-main .lw-fbot-scroll{flex:0 0 clamp(110px,var(--lw-board-size,58%),calc(100% - 110px));min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0}
-      .lw-fbot-main[data-canvas-minimized=true] .lw-fbot-scroll{flex:0 0 auto}
+      .lw-fbot-main{display:flex;flex-direction:column;reading-flow:flex-visual;min-width:0;min-height:0;height:100%;font-family:var(--dsw-font-family,inherit);--lw-bot-gutter:clamp(14px,3vw,28px)}
+      .lw-fbot-main .lw-fbot-scroll{flex:0 0 clamp(110px,var(--lw-board-size,58%),calc(100% - 110px));min-height:0;min-width:0;display:flex;flex-direction:column;overflow:hidden;padding:0}
+      .lw-fbot-main[data-pane-layout=side]:not([data-canvas-minimized=true]){flex-direction:row-reverse;--lw-bot-gutter:clamp(10px,1.4vw,20px)}
+      .lw-fbot-main[data-pane-layout=side][data-pane-mirrored=true]:not([data-canvas-minimized=true]){flex-direction:row}
+      .lw-fbot-main[data-pane-layout=stack][data-pane-mirrored=true]:not([data-canvas-minimized=true]){flex-direction:column-reverse}
+      .lw-fbot-main[data-pane-layout=side] .lw-fbot-scroll{flex-basis:clamp(min(210px,45%),var(--lw-board-size,54%),calc(100% - min(190px,45%) - 8px))}
+      .lw-fbot-main[data-pane-layout=side] .lw-bot-divider{cursor:ew-resize}
+      .lw-fbot-main[data-pane-layout=side] .lw-bot-divider::after{inset:0 auto 0 3px;border-block-start:0;border-inline-start:.5px solid var(--dsw-alias-border-l2,#8884)}
+      .lw-fbot-main[data-canvas-minimized=true] .lw-fbot-scroll{flex:0 0 auto;overflow:visible;z-index:2}
       .lw-fbot-main[data-canvas-expanded=true] .lw-fbot-scroll{flex:1 1 auto}
       .lw-fbot-main[data-canvas-expanded=true] :is(.lw-bot-divider,.lw-bot-conversation){display:none}
       .lw-fbot-scroll>.lw-fbot-center{display:flex;flex:1;flex-direction:column;min-height:0;max-width:none;gap:0}
@@ -1353,7 +1376,7 @@ window.__ModuleLoader__.load({
       .lw-bot-board{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable;padding:10px var(--lw-bot-gutter);container-type:size}
       .lw-bot-board[data-canvas=true]{padding-block-start:6px}
       .lw-bot-board > [data-bot-canvas]{margin-block-start:0}
-      .lw-bot-conversation{display:flex;flex:1 1 0;min-height:0;flex-direction:column;background:var(--dsw-alias-bg-base,Canvas)}
+      .lw-bot-conversation{display:flex;flex:1 1 0;min-height:0;min-width:0;flex-direction:column;background:var(--dsw-alias-bg-base,Canvas)}
       .lw-bot-divider{position:relative;flex:0 0 8px;cursor:ns-resize;touch-action:none;outline-offset:-2px}
       .lw-bot-divider::after{content:'';position:absolute;inset:3px 0 auto;border-block-start:.5px solid var(--dsw-alias-border-l2,#8884)}
       .lw-bot-divider:is(:hover,:focus-visible)::after{border-color:var(--dsw-alias-border-l4,#8888)}
@@ -1370,8 +1393,23 @@ window.__ModuleLoader__.load({
       .lw-canvas-progress{color:var(--dsw-alias-label-secondary);font-size:var(--lw-ui-xs);overflow-wrap:anywhere}
       .lw-canvas-layout{flex:none;color:var(--dsw-alias-label-secondary);font-size:var(--lw-ui-xs)}
       .lw-canvas-categories{display:flex;gap:6px;overflow:auto;flex:1;min-width:0;padding:2px}
-      .lw-canvas-controls{display:flex;align-items:center;gap:2px;flex:none;margin-inline-start:auto;font-size:var(--lw-ui-xs);font-variant-numeric:tabular-nums}
+      .lw-canvas-controls{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:2px;min-width:0;margin-inline-start:auto;font-size:var(--lw-ui-xs);font-variant-numeric:tabular-nums}
       .lw-canvas-controls button{min-width:26px;min-height:26px;padding:3px 6px}
+      .lw-canvas-icon-control{position:relative;display:inline-flex;flex:none;vertical-align:middle}
+      .lw-canvas-icon-control:has(:is(button:hover,button:focus-visible)){z-index:3}
+      .lw-canvas-icon-control .lw-btn{display:inline-grid;place-items:center;width:27px;min-height:27px;padding:0;border-radius:var(--dsw-radius-sm,6px)}
+      .lw-canvas-icon-control .lw-icon{width:15px;height:15px}
+      .lw-canvas-icon-control button:active .lw-icon{transform:scale(.88)}
+      .lw-canvas-icon-control button[aria-pressed=true]{background:var(--dsw-alias-interactive-bg-hover,#8882)}
+      .lw-canvas-icon-hint{position:absolute;z-index:2;inset-inline-end:0;top:calc(100% + 5px);width:max-content;padding:4px 7px;border:1px solid var(--dsw-alias-border-l2,#8884);border-radius:6px;background:var(--dsw-alias-bg-layer-2,Canvas);color:var(--dsw-alias-label-primary,CanvasText);box-shadow:0 3px 10px #0002;font-size:var(--lw-ui-xs);pointer-events:none;opacity:0;visibility:hidden;transform:translateY(-3px);transition:opacity .14s,transform .14s,visibility .14s}
+      .lw-canvas-icon-control:has(:is(button:hover,button:focus-visible)) .lw-canvas-icon-hint{opacity:1;visibility:visible;transform:translateY(0)}
+      @media(prefers-reduced-motion:no-preference){
+        .lw-canvas-icon-control .lw-icon{animation:lw-canvas-icon-in .18s ease-out}
+        .lw-dialog.lw-canvas-full[open]{animation:lw-canvas-full-in .2s ease-out}
+      }
+      @media(prefers-reduced-motion:reduce){.lw-canvas-icon-hint{transition:none}}
+      @keyframes lw-canvas-icon-in{from{opacity:.55;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+      @keyframes lw-canvas-full-in{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:scale(1)}}
       .lw-canvas-categories button{flex:none;border:0;border-radius:var(--dsw-radius-sm,6px);padding:4px 9px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:var(--lw-ui-sm);line-height:1.45;cursor:pointer}
       .lw-canvas-categories button:hover{background:var(--dsw-alias-interactive-bg-hover,#8881)}
       .lw-canvas-categories button[aria-pressed=true]{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover,#8882);font-weight:500}
@@ -1395,6 +1433,11 @@ window.__ModuleLoader__.load({
       .lw-dialog.lw-canvas-full{inset:0;margin:0;width:100%;height:100%;max-width:none;max-height:none;padding:12px;border:0;border-radius:0;display:flex;flex-direction:column}
       .lw-canvas-full .lw-bot-canvas{flex:1;min-height:0}
       .lw-canvas-card[data-draft=true]{border-style:dashed}
+      .lw-canvas-draft-group{border-style:dashed}
+      .lw-canvas-draft-toggle{display:flex;align-items:center;gap:7px;width:100%;padding:9px 11px;border:0;border-radius:inherit;background:none;color:inherit;font:inherit;text-align:start;cursor:pointer}
+      .lw-canvas-draft-toggle strong{flex:none}
+      .lw-canvas-draft-toggle span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-size:var(--lw-ui-xs)}
+      .lw-canvas-draft-list{display:grid;gap:7px;padding:0 7px 7px}
       .lw-canvas-node-actions{display:flex;gap:4px;justify-content:flex-end;padding:0 7px 6px}
       .lw-canvas-node-actions button{min-width:26px;font-size:var(--lw-ui-base)}
       .lw-canvas-live{margin:0;padding:5px 9px;color:var(--dsw-alias-label-secondary);font-size:var(--lw-ui-xs)}
@@ -1402,6 +1445,8 @@ window.__ModuleLoader__.load({
       .lw-canvas-lane h3{margin:0;font-size:var(--lw-ui-sm);font-weight:500;color:var(--dsw-alias-label-secondary)}
       .lw-canvas-card{box-sizing:border-box;position:relative;min-width:0;width:100%;max-width:360px;align-self:start;border:.5px solid var(--dsw-alias-border-l3,#8884);border-radius:var(--dsw-radius-md,10px);background:var(--dsw-alias-bg-base,Canvas)}
       .lw-canvas-card:has(button):hover,.lw-canvas-card[data-current=true]{border-color:var(--dsw-alias-border-l4,#8887);background:var(--dsw-alias-bg-layer-2,Canvas)}
+      .lw-canvas-draft-group:has(button[aria-expanded=true]){background:transparent;pointer-events:none}
+      .lw-canvas-draft-toggle,.lw-canvas-draft-list>.lw-canvas-card{pointer-events:auto}
       .lw-canvas-card-body{box-sizing:border-box;display:grid;gap:5px;width:100%;min-width:0;border:0;padding:10px 11px;background:none;color:inherit;text-align:start;font:inherit;border-radius:7px;overflow-wrap:anywhere}
       button.lw-canvas-card-body{cursor:pointer}
       .lw-canvas-card strong{font-size:var(--lw-ui-base);font-weight:550;line-height:1.45}
@@ -1411,9 +1456,20 @@ window.__ModuleLoader__.load({
       .lw-canvas-card :is(button,input):focus-visible,.lw-canvas-categories button:focus-visible{outline:var(--dsw-focus-ring-width,2px) solid var(--dsw-focus-ring-color,#3b82f6);outline-offset:2px}
       .lw-canvas-card-meta{display:flex;flex-wrap:wrap;gap:4px 8px;font-size:var(--lw-ui-xs);color:var(--dsw-alias-label-secondary)}
       .lw-canvas-edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;color:color-mix(in srgb,var(--lw-paradigm-accent,#7891ba) 74%,var(--dsw-alias-label-secondary))}
-      .lw-canvas-edges path{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
-      .lw-canvas-edges [data-kind=related] path{stroke-dasharray:4 4}
-      .lw-canvas-edges circle{fill:currentColor}
+      .lw-canvas-edge-line{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+      .lw-canvas-edges [data-kind=dependency],.lw-canvas-legend [data-kind=dependency]{color:var(--dsw-alias-label-secondary,GrayText)}
+      .lw-canvas-edges [data-kind=dependency] .lw-canvas-edge-line{stroke-dasharray:9 4}
+      .lw-canvas-edges [data-kind=related] .lw-canvas-edge-line{stroke-dasharray:1 5}
+      .lw-canvas-edge-hit{fill:none;stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:pointer}
+      .lw-canvas-edges [role=button]:is(:hover,:focus-visible) .lw-canvas-edge-line{stroke-width:3.5}
+      .lw-canvas-legend{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:var(--lw-ui-xs)}
+      .lw-canvas-legend span{display:inline-flex;align-items:center;gap:4px}
+      .lw-canvas-legend i{position:relative;display:inline-block;width:18px;border-top:2px solid currentColor}
+      .lw-canvas-legend [data-kind=dependency] i{border-top-style:dashed}
+      .lw-canvas-legend [data-kind=related] i{border-top-style:dotted}
+      .lw-canvas-legend :not([data-kind=related])>i::after{content:"";position:absolute;right:0;top:-4px;width:6px;height:6px;border-top:1.5px solid;border-right:1.5px solid;transform:rotate(45deg)}
+      .lw-canvas-link-basis{white-space:pre-wrap;overflow-wrap:anywhere}
+      .lw-canvas-link-source{min-width:0;overflow-wrap:anywhere}
       .lw-canvas-arrow{fill:currentColor}
       .lw-canvas-link-list{display:grid;gap:5px;max-height:200px;overflow:auto;padding:8px;border:1px solid var(--dsw-alias-border-l2,#8884);border-radius:6px}
       .lw-canvas-link-list label{display:flex;align-items:center;gap:8px;overflow-wrap:anywhere}
@@ -3234,7 +3290,8 @@ window.__ModuleLoader__.load({
     const preparingReply = { text: LW('正在准备本轮回复') }
     let workbenchViews
     const getWorkbenchViews = () => workbenchViews ||= import(new URL('./labweave-bot-workbench.js', document.baseURI).href)
-      .then(module => module.createWorkbenchViews(React, project, { Btn, Icon, Tag, Select, fmtDateTime, Canvas: BotParadigmView }))
+      .then(module => module.createWorkbenchViews(React, project, { Btn, Icon, Tag, Select, fmtDateTime, Canvas: BotParadigmView,
+        CanvasIconButton }))
     const BotExperiments = React.lazy(() => getWorkbenchViews().then(views => ({ default: views.Experiments })))
     const BotCharts = React.lazy(() => getWorkbenchViews().then(views => ({ default: views.Charts })))
 
@@ -3364,15 +3421,41 @@ window.__ModuleLoader__.load({
       }
     }
 
-    function BotParadigmView({ layout, items, fields = [], activeId, openEntry, toggleGoal, addNode, deleteNode, editLinks, busy, emptyTitle,
+    const canvasDraftLabel = item => LW(item.recordId ? '草稿 · 已转为成果' : item.duplicateOf ? '草稿 · 与成果重复' : '草稿 · 待核验')
+
+    const canvasLinkLabels = { branch: '分支', dependency: '前置依赖', related: '普通关联' }
+    const canvasLinkPair = (from, to) => JSON.stringify([from, to].sort())
+
+    function CanvasIconButton({ label, icon, ...props }) {
+      return h('span', { className: 'lw-canvas-icon-control' },
+        Btn({ variant: 'ghost', size: 'xs', 'aria-label': label, ...props }, h(Icon, { name: icon, key: icon })),
+        h('span', { className: 'lw-canvas-icon-hint', 'aria-hidden': true }, label))
+    }
+
+    function PaneLayoutButton({ paneLayout, onToggleLayout }) {
+      const side = paneLayout === 'side'
+      return h(CanvasIconButton, { icon: side ? 'panes-stack' : 'panes-side',
+        label: side ? LW('切换为上下布局') : LW('切换为左右布局'),
+        'data-pane-layout-toggle': true, onClick: onToggleLayout })
+    }
+
+    function animateBotUI(element, frames, options) {
+      if (!element?.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return null
+      return element.animate(frames, options)
+    }
+
+    function BotParadigmView({ layout, items, fields = [], activeId, openEntry, toggleGoal, addNode, deleteNode, editLinks,
+      onInspectLink, busy, emptyTitle, paneLayout,
       activeTasks, onMinimize, onFillChat, chatFilled, canvasReady = true, canvasHidden = false, label = LW('内容画布') }) {
       const arrowId = React.useId()
       const [category, setCategory] = React.useState(null)
+      const [expandedDrafts, setExpandedDrafts] = React.useState(() => new Set())
       const [paths, setPaths] = React.useState([])
       const [camera, setCamera] = React.useState({ zoom: 100, x: 0, y: 0 })
       const [scrollSpace, setScrollSpace] = React.useState({ width: 0, height: 0 })
       const [panning, setPanning] = React.useState(false)
       const [fullscreen, setFullscreen] = React.useState(false)
+      const fullscreenExit = React.useRef(false)
       const [size, setSize] = React.useState({ width: 0, height: 188 })
       const zoom = camera.zoom / 100
       const viewportRef = React.useRef(null)
@@ -3389,13 +3472,20 @@ window.__ModuleLoader__.load({
         centerAnimation.current = null
       }
       React.useLayoutEffect(() => stopCentering, [])
-      function zoomBy(delta) {
+      function zoomBy(delta, anchor) {
         stopCentering()
-        setCamera(current => ({ ...current, zoom: Math.max(50, Math.min(200, current.zoom + delta)) }))
+        setCamera(current => {
+          const nextZoom = Math.max(50, Math.min(200, current.zoom + delta))
+          if (nextZoom === current.zoom) return current
+          if (!anchor) return { ...current, zoom: nextZoom }
+          const ratio = nextZoom / current.zoom
+          return { zoom: nextZoom, x: anchor.x - (anchor.x - current.x) * ratio,
+            y: anchor.y - (anchor.y - current.y) * ratio }
+        })
         advanceCenter()
       }
       function startPan(event) {
-        if (event.button !== 0 || event.target.closest('button,input,a,label')) return
+        if (event.button !== 0 || event.target.closest('button,input,a,label,[role=button]')) return
         const stage = stageRef.current
         if (!stage?.offsetWidth) return
         stopCentering()
@@ -3428,7 +3518,10 @@ window.__ModuleLoader__.load({
         viewport.scrollTo(viewport.scrollLeft + (node.left + node.width / 2 - frame.left - frame.width / 2) / scale,
           viewport.scrollTop + (node.top + node.height / 2 - frame.top - frame.height / 2) / scale)
       }
-      function resetCamera() {
+      function resetCamera(event) {
+        animateBotUI(event.currentTarget.querySelector('.lw-icon'),
+          [{ transform: 'rotate(-100deg)' }, { transform: 'rotate(0)' }], { duration: 230, easing: 'ease-out' })
+        animateBotUI(stageRef.current, [{ opacity: .65 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' })
         stopCentering()
         pendingCenters.current.length = 0
         centeredNewCard.current = false
@@ -3436,43 +3529,80 @@ window.__ModuleLoader__.load({
         setScrollSpace({ width: 0, height: 0 })
         requestAnimationFrame(centerViewport)
       }
+      function closeFullscreen() {
+        if (fullscreenExit.current) return
+        fullscreenExit.current = true
+        const dialog = viewportRef.current?.closest('.lw-canvas-full')
+        const animation = animateBotUI(dialog, [{ opacity: 1 }, { opacity: 0, transform: 'scale(.985)' }],
+          { duration: 150, easing: 'ease-in', fill: 'forwards' })
+        if (animation) animation.finished.then(() => setFullscreen(false), () => setFullscreen(false))
+        else setFullscreen(false)
+      }
+      React.useLayoutEffect(() => {
+        if (!fullscreen && fullscreenExit.current) {
+          fullscreenExit.current = false
+          viewportRef.current?.closest('.lw-bot-canvas')?.querySelector('[data-canvas-fullscreen]')?.focus()
+        }
+      }, [fullscreen])
       React.useEffect(() => {
         const viewport = viewportRef.current
         function wheel(event) {
-          if (!event.ctrlKey || !event.deltaY) return
+          if (!event.deltaY || event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
           event.preventDefault()
-          zoomBy(event.deltaY < 0 ? 10 : -10)
+          const frame = viewport.getBoundingClientRect()
+          const scale = frame.width / viewport.offsetWidth || 1
+          zoomBy(event.deltaY < 0 ? 10 : -10, {
+            x: viewport.scrollLeft + (event.clientX - frame.left) / scale,
+            y: viewport.scrollTop + (event.clientY - frame.top) / scale,
+          })
         }
         viewport.addEventListener('wheel', wheel, { passive: false })
         return () => viewport.removeEventListener('wheel', wheel)
       }, [fullscreen])
       const byId = new Map(items.map(item => [item.id, item]))
       const rows = items.map(item => ({ ...botDisplayRecord(item, fields, layout), item }))
-      const categories = [...new Set(rows.map(row => row.item.canvasGroup || row.group || LW('未分类')))]
+      const categoryOf = row => row.item.canvasGroup || row.group || LW('未分类')
+      const categories = [...new Set(rows.map(categoryOf))]
       const selected = categories.includes(category) ? category : null
-      const visible = rows.filter(row => !selected || (row.item.canvasGroup || row.group || LW('未分类')) === selected)
+      const visible = rows.filter(row => !selected || categoryOf(row) === selected)
       const ids = new Set(visible.map(row => row.item.id))
+      const draftGroups = new Map()
+      const groupByDraft = new Map()
+      const layoutRows = []
+      for (const row of visible) {
+        if (!row.item.canvasDraft) {
+          layoutRows.push(row)
+          continue
+        }
+        const name = categoryOf(row)
+        if (!draftGroups.has(name)) {
+          const group = { name, id: 'draft-group:' + name, rows: [] }
+          draftGroups.set(name, group)
+          layoutRows.push({ ...row, draftGroup: group, item: { id: group.id, canvasGroup: name, ts: row.item.ts } })
+        }
+        const group = draftGroups.get(name)
+        group.rows.push(row)
+        groupByDraft.set(row.item.id, group)
+      }
       React.useLayoutEffect(() => {
         if (!canvasReady) return
-        const identity = item => item.publishedDraftId || item.id
         if (!seenCards.current) {
-          seenCards.current = new Set(items.map(identity))
+          seenCards.current = new Set(items.map(item => item.id))
           return
         }
         const newCards = []
         for (const item of [...items].reverse()) {
-          const key = identity(item)
-          if (seenCards.current.has(key)) continue
-          seenCards.current.add(key)
-          newCards.push({ key, created: Date.parse(item.created || item.ts) || 0 })
+          if (seenCards.current.has(item.id)) continue
+          seenCards.current.add(item.id)
+          newCards.push({ id: item.id, created: Date.parse(item.created || item.ts) || 0 })
         }
-        pendingCenters.current.push(...newCards.sort((a, b) => a.created - b.created).map(item => item.key))
+        pendingCenters.current.push(...newCards.sort((a, b) => a.created - b.created).map(item => item.id))
         const viewport = viewportRef.current
         if (centerAnimation.current && (canvasHidden || newCards.length || centerAnimation.current.viewport !== viewport)) {
           stopCentering()
         }
         if (!pendingCenters.current.length || centerAnimation.current || panning || canvasHidden) return
-        const target = items.find(item => identity(item) === pendingCenters.current[0])
+        const target = byId.get(pendingCenters.current[0])
         if (!target) {
           pendingCenters.current.shift()
           advanceCenter()
@@ -3482,7 +3612,9 @@ window.__ModuleLoader__.load({
           setCategory(null)
           return
         }
-        const node = stageRef.current?.querySelector('[data-canvas-node="' + CSS.escape(target.id) + '"]')
+        const group = groupByDraft.get(target.id)
+        const nodeId = group && !expandedDrafts.has(group.name) ? group.id : target.id
+        const node = stageRef.current?.querySelector('[data-canvas-node="' + CSS.escape(nodeId) + '"]')
         if (!viewport?.offsetWidth || !viewport.offsetHeight || !node) return
         const frame = viewport.getBoundingClientRect()
         const card = node.getBoundingClientRect()
@@ -3526,15 +3658,18 @@ window.__ModuleLoader__.load({
         centeredNewCard.current = true
         centerAnimation.current = animation
         animation.frame = requestAnimationFrame(tick)
-      }, [items, canvasReady, canvasHidden, selected, panning, fullscreen, centerPass])
+      }, [items, canvasReady, canvasHidden, selected, expandedDrafts, panning, fullscreen, centerPass])
       const edges = []
-      const connected = new Set()
+      const edgePairs = new Map()
       function connect(from, to, kind) {
         if (!ids.has(from) || from === to) return
-        const key = JSON.stringify([from, to].sort())
-        if (connected.has(key)) return
-        connected.add(key)
-        edges.push({ from, to, kind })
+        const key = canvasLinkPair(from, to)
+        const samePair = edgePairs.get(key) || []
+        if (samePair.some(edge => edge.kind === kind)) return
+        const edge = { from, to, kind }
+        samePair.push(edge)
+        edgePairs.set(key, samePair)
+        edges.push(edge)
       }
       for (const { item, relation } of visible) {
         for (const id of item.dependsOn || []) connect(id, item.id, 'dependency')
@@ -3544,6 +3679,7 @@ window.__ModuleLoader__.load({
       for (const { item } of visible) {
         for (const id of item.relatedIds || []) connect(id, item.id, 'related')
       }
+      const layoutEdges = edges.filter(({ from, to }) => !groupByDraft.has(from) && !groupByDraft.has(to))
       const dated = layout === 'timeline' || layout === 'lineage'
       const sequential = dated || layout === 'reasoning'
       const star = layout === 'star'
@@ -3557,7 +3693,7 @@ window.__ModuleLoader__.load({
         return () => cancelAnimationFrame(frame)
       }, [hasStarNodes, fullscreen])
       const graph = ['graph', 'path', 'branches', 'sequence'].includes(layout)
-      const layered = graph && (edges.length > 0 || layout === 'graph' || layout === 'path')
+      const layered = graph && (layoutEdges.length > 0 || layout === 'graph' || layout === 'path')
       const lanes = new Map()
       const append = (key, row) => {
         if (!lanes.has(key)) lanes.set(key, [])
@@ -3565,12 +3701,12 @@ window.__ModuleLoader__.load({
       }
       if (layered) {
         const depth = new Map()
-        const byRecord = new Map(visible.map(row => [row.item.id, row]))
-        const incoming = new Map(visible.map(row => [row.item.id, []]))
-        for (const edge of edges) if (edge.kind !== 'related') incoming.get(edge.to).push(edge.from)
+        const byRecord = new Map(layoutRows.filter(row => !row.draftGroup).map(row => [row.item.id, row]))
+        const incoming = new Map([...byRecord.keys()].map(id => [id, []]))
+        for (const edge of layoutEdges) if (edge.kind !== 'related') incoming.get(edge.to).push(edge.from)
         const successors = new Map()
-        for (const { from, kind } of edges) if (kind !== 'related') successors.set(from, (successors.get(from) || 0) + 1)
-        const nodes = visible.map(row => ({ id: row.item.id, dependsOn: incoming.get(row.item.id) }))
+        for (const { from, kind } of layoutEdges) if (kind !== 'related') successors.set(from, (successors.get(from) || 0) + 1)
+        const nodes = [...incoming].map(([id, dependsOn]) => ({ id, dependsOn }))
           .sort((a, b) => (successors.get(b.id) || 0) - (successors.get(a.id) || 0))
         for (const item of orderGoalPath(nodes)) {
           const parents = incoming.get(item.id).filter(id => depth.has(id))
@@ -3578,9 +3714,13 @@ window.__ModuleLoader__.load({
           depth.set(item.id, level)
           append(level, byRecord.get(item.id))
         }
+        for (const row of layoutRows.filter(row => row.draftGroup)) {
+          const peer = visible.find(item => !item.item.canvasDraft && categoryOf(item) === row.draftGroup.name)
+          append(depth.get(peer?.item.id) ?? 0, row)
+        }
       } else if (sequential) {
         const direction = layout === 'timeline' ? -1 : 1
-        const ordered = [...visible].sort((a, b) => {
+        const ordered = [...layoutRows].sort((a, b) => {
           const left = Date.parse(dated ? a.date : a.item.ts)
           const right = Date.parse(dated ? b.date : b.item.ts)
           if (!Number.isFinite(left)) return Number.isFinite(right) ? 1 : 0
@@ -3589,7 +3729,7 @@ window.__ModuleLoader__.load({
         })
         ordered.forEach((row, index) => append(index, row))
       } else {
-        for (const row of visible) {
+        for (const row of layoutRows) {
           const group = row.item.canvasGroup || (layout === 'checklist' && row.item.done ? LW('已完成') : row.group)
           append(group || (layout === 'checklist' ? LW('待办') : LW('未分类')), row)
         }
@@ -3597,24 +3737,24 @@ window.__ModuleLoader__.load({
 
       const degree = new Map()
       const children = new Map()
-      for (const { from, to, kind } of edges) {
+      for (const { from, to, kind } of layoutEdges) {
         degree.set(from, (degree.get(from) || 0) + 1)
         degree.set(to, (degree.get(to) || 0) + 1)
         if (kind !== 'related') children.set(from, (children.get(from) || 0) + 1)
       }
-      const positioned = [...visible]
+      const positioned = [...layoutRows]
       if (star && degree.size) positioned.sort((a, b) =>
         (degree.get(b.item.id) || 0) - (degree.get(a.item.id) || 0) ||
         (children.get(b.item.id) || 0) - (children.get(a.item.id) || 0))
       const busSlots = new Map()
-      if (bus && edges.length) {
-        const neighbors = new Map(visible.map(({ item }) => [item.id, []]))
-        for (const { from, to } of edges) {
+      if (bus && layoutEdges.length) {
+        const neighbors = new Map(layoutRows.map(({ item }) => [item.id, []]))
+        for (const { from, to } of layoutEdges) {
           neighbors.get(from).push(to)
           neighbors.get(to).push(from)
         }
         let slot = 0
-        for (const { item } of visible) {
+        for (const { item } of layoutRows) {
           if (busSlots.has(item.id)) continue
           const pending = [item.id]
           busSlots.set(item.id, slot++)
@@ -3628,9 +3768,14 @@ window.__ModuleLoader__.load({
           slot += slot % 2
         }
       }
-      const edgeKey = JSON.stringify(edges)
-      const visibleKey = JSON.stringify(star || bus ? positioned.map(row => row.item.id)
-        : [...lanes].map(([key, entries]) => [key, entries.map(row => row.item.id)]))
+      const edgeKey = JSON.stringify(edges.map(edge => {
+        const pair = edgePairs.get(canvasLinkPair(edge.from, edge.to))
+        return { ...edge, offset: (pair.indexOf(edge) - (pair.length - 1) / 2) * 22 }
+      }))
+      const displayedIds = row => row.draftGroup && expandedDrafts.has(row.draftGroup.name)
+        ? [row.item.id, ...row.draftGroup.rows.map(entry => entry.item.id)] : row.item.id
+      const visibleKey = JSON.stringify(star || bus ? positioned.map(displayedIds)
+        : [...lanes].map(([key, entries]) => [key, entries.map(displayedIds)]))
       React.useLayoutEffect(() => {
         const stage = stageRef.current
         if (!stage) { setPaths([]); return }
@@ -3641,18 +3786,20 @@ window.__ModuleLoader__.load({
           setSize(current => current.width === width && current.height === height ? current : { width, height })
           const origin = stage.getBoundingClientRect()
           const scale = origin.width / stage.offsetWidth || 1
-          const busAxis = bus && nodes.size > 1 ? (
-            Math.max(...[...nodes.values()].filter(node => node.dataset.busRow === '1').map(node => node.getBoundingClientRect().bottom)) +
-            Math.min(...[...nodes.values()].filter(node => node.dataset.busRow === '2').map(node => node.getBoundingClientRect().top))
+          const topRow = bus ? [...nodes.values()].filter(node => node.dataset.busRow === '1') : []
+          const bottomRow = bus ? [...nodes.values()].filter(node => node.dataset.busRow === '2') : []
+          const busAxis = topRow.length && bottomRow.length ? (
+            Math.max(...topRow.map(node => node.getBoundingClientRect().bottom)) +
+            Math.min(...bottomRow.map(node => node.getBoundingClientRect().top))
           ) / 2 : null
-          const next = links.flatMap(({ from, to, kind }) => {
+          const next = links.flatMap(({ from, to, kind, offset }) => {
             if (!nodes.has(from) || !nodes.has(to)) return []
             const source = nodes.get(from).getBoundingClientRect()
             const target = nodes.get(to).getBoundingClientRect()
             const dx = target.left + target.width / 2 - source.left - source.width / 2
-            if (busAxis !== null) {
-              const axis = (busAxis - origin.top) / scale
-              const onBus = node => [(node.left + node.width / 2 - origin.left) / scale,
+            if (busAxis !== null && nodes.get(from).dataset.busRow && nodes.get(to).dataset.busRow) {
+              const axis = (busAxis - origin.top) / scale + offset
+              const onBus = node => [(node.left + node.width / 2 - origin.left) / scale + offset,
                 ((node.bottom < busAxis ? node.bottom : node.top) - origin.top) / scale]
               const [x, y] = onBus(source), end = onBus(target)
               return [{ from, to, kind, end, d: `M${x} ${y} V${axis} H${end[0]} V${end[1]}` }]
@@ -3663,7 +3810,8 @@ window.__ModuleLoader__.load({
             const y = (across ? source.top + source.height / 2 : (forward ? source.bottom : source.top)) - origin.top
             const endX = (across ? (forward ? target.left : target.right) : target.left + target.width / 2) - origin.left
             const endY = (across ? target.top + target.height / 2 : (forward ? target.top : target.bottom)) - origin.top
-            const start = [x / scale, y / scale], end = [endX / scale, endY / scale]
+            const start = [x / scale + (across ? 0 : offset), y / scale + (across ? offset : 0)]
+            const end = [endX / scale + (across ? 0 : offset), endY / scale + (across ? offset : 0)]
             const middle = across ? (start[0] + end[0]) / 2 : (start[1] + end[1]) / 2
             const via = across ? [middle, start[1], middle, end[1]] : [start[0], middle, end[0], middle]
             const d = 'M' + start.join(' ') + ' C' + via.join(' ') + ' ' + end.join(' ')
@@ -3698,7 +3846,7 @@ window.__ModuleLoader__.load({
               (dated || date) && h('span', null, date || LW('日期待确认')),
               row.source && item.source && h('span', null, cardOverviewText(item.source, 32)),
               item.due && h('span', null, LW('截止 ') + item.due),
-              item.canvasDraft && h('span', null, LW('草稿 · 待核验')),
+              item.canvasDraft && h('span', null, canvasDraftLabel(item)),
               item.canvasDraft && h('span', null, ({ queued: LW('排队中'), running: LW('整理中'),
                 needs_follow_up: LW('待继续'), completed: LW('已返回') })[item.dispatchStatus] || LW('已结束')),
               status && h('span', null, status),
@@ -3730,10 +3878,34 @@ window.__ModuleLoader__.load({
         const [x, y] = [[ring, offset], [-offset, ring], [-ring, -offset], [offset, -ring]][side]
         return { gridRow: radius + 1 + y, gridColumn: radius + 1 + x }
       }
+      function renderNode(row, style, index) {
+        const group = row.draftGroup
+        if (!group) return card(row, style, index)
+        const expanded = expandedDrafts.has(group.name)
+        const detailsId = arrowId + '-draft-' + encodeURIComponent(group.name)
+        return h('article', { key: group.id, className: 'lw-canvas-card lw-canvas-draft-group',
+          'data-canvas-node': group.id, 'data-bus-row': bus ? index % 2 + 1 : undefined, style },
+          h('button', { type: 'button', className: 'lw-canvas-draft-toggle',
+            'aria-label': LW('草稿') + ' · ' + group.name + ' · ' + group.rows.length,
+            'aria-expanded': expanded, 'aria-controls': detailsId,
+            onClick: () => setExpandedDrafts(previous => {
+              const next = new Set(previous)
+              if (next.has(group.name)) next.delete(group.name)
+              else next.add(group.name)
+              return next
+            }),
+          }, h(Icon, { name: expanded ? 'down' : 'right' }), h('strong', null, LW('草稿') + ' ' + group.rows.length),
+          h('span', { title: group.name }, group.name)),
+          h('div', { id: detailsId, hidden: !expanded },
+            expanded && h('div', { className: 'lw-canvas-draft-list' }, group.rows.map(entry => card(entry)))))
+      }
       const canvas = h('section', { className: 'lw-bot-canvas', 'data-layout': layout, 'data-layered': layered, 'aria-label': label },
         h('div', { className: 'lw-canvas-toolbar' },
           addNode && Btn({ variant: 'add', size: 'xs', disabled: busy, onClick: () => addNode(null) }, LW('添加节点')),
           botLayoutLabels[layout] && h('span', { className: 'lw-canvas-layout' }, LW(botLayoutLabels[layout])),
+          edges.length > 0 && h('div', { className: 'lw-canvas-legend', role: 'group', 'aria-label': LW('连线图例') },
+            Object.entries(canvasLinkLabels).map(([kind, label]) => h('span', { key: kind, 'data-kind': kind },
+              h('i', { 'aria-hidden': true }), LW(label)))),
           Boolean(activeTasks) && h('span', { className: 'lw-canvas-progress', role: 'status' },
             activeTasks + LW(' 项任务正在整理，草稿随进度更新')),
           categories.length > 1 && h('div', { className: 'lw-canvas-categories', role: 'group', 'aria-label': LW('内容类别') },
@@ -3743,15 +3915,17 @@ window.__ModuleLoader__.load({
             Btn({ variant: 'ghost', size: 'xs', disabled: camera.zoom <= 50, 'aria-label': LW('缩小画布'), onClick: () => zoomBy(-10) }, '−'),
             h('span', { 'aria-label': LW('当前缩放') }, camera.zoom + '%'),
             Btn({ variant: 'ghost', size: 'xs', disabled: camera.zoom >= 200, 'aria-label': LW('放大画布'), onClick: () => zoomBy(10) }, '+'),
-            Btn({ variant: 'ghost', size: 'xs', 'aria-label': LW('重置画布视图'), onClick: resetCamera }, LW('重置')),
-            !fullscreen && Btn({ variant: 'ghost', size: 'xs', 'aria-label': LW('全屏画布'), onClick: () => setFullscreen(true) }, LW('全屏')),
-            !fullscreen && onFillChat && Btn({
-              variant: 'ghost', size: 'xs',
-              'aria-label': chatFilled ? LW('展开对话流') : LW('占满对话流并收起对话'),
+            h(CanvasIconButton, { label: LW('重置画布视图'), icon: 'refresh', onClick: resetCamera }),
+            !fullscreen && h(CanvasIconButton, { label: LW('全屏画布'), icon: 'canvas-full',
+              'data-canvas-fullscreen': true, onClick: () => setFullscreen(true) }),
+            !fullscreen && onFillChat && h(CanvasIconButton, {
+              label: chatFilled ? LW('恢复对话流') : LW('画布占用对话区'),
+              icon: chatFilled ? (paneLayout === 'stack' ? 'panes-stack' : 'panes-side')
+                : (paneLayout === 'stack' ? 'canvas-expand-down' : 'canvas-expand'),
               'aria-pressed': Boolean(chatFilled), 'data-canvas-fill-chat': true, onClick: onFillChat,
-            }, LW(chatFilled ? '显示对话' : '占满对话')),
-            !fullscreen && onMinimize && Btn({ variant: 'ghost', size: 'xs', 'aria-label': LW('最小化画布'),
-              'data-canvas-minimize': true, onClick: onMinimize }, LW('最小化')))),
+            }),
+            !fullscreen && onMinimize && h(CanvasIconButton, { label: LW('最小化画布'), icon: 'canvas-minimize',
+              'data-canvas-minimize': true, onClick: onMinimize }))),
         h('div', { ref: viewportRef, className: 'lw-canvas-viewport', tabIndex: 0, role: 'region', 'aria-label': LW('节点与连线'),
           'data-panning': panning, onPointerDown: startPan, onPointerMove: movePan,
           onPointerUp: endPan, onPointerCancel: endPan, onLostPointerCapture: endPan },
@@ -3766,24 +3940,44 @@ window.__ModuleLoader__.load({
           } },
           h('div', { ref: stageRef, className: 'lw-canvas-stage',
             style: { transform: 'translate(' + camera.x + 'px,' + camera.y + 'px) scale(' + zoom + ')' } },
-            h('svg', { className: 'lw-canvas-edges', 'aria-hidden': true },
-            h('defs', null, h('marker', { id: arrowId, viewBox: '0 0 8 8', refX: 8, refY: 4,
-              markerWidth: 9, markerHeight: 9, markerUnits: 'userSpaceOnUse', orient: 'auto' },
-              h('polygon', { className: 'lw-canvas-arrow', points: '0,0 8,4 0,8' }))),
-            paths.map(link => h('g', { key: link.from + ':' + link.to, 'data-from': link.from, 'data-to': link.to, 'data-kind': link.kind },
-                h('path', { d: link.d, markerEnd: link.kind !== 'related' ? 'url(#' + arrowId + ')' : undefined }),
-                link.kind === 'related' && h('circle', { cx: link.end[0], cy: link.end[1], r: 2.5 })))),
+            h('svg', { className: 'lw-canvas-edges', role: 'group', 'aria-label': LW('卡片关系') },
+              h('defs', null, ['branch', 'dependency'].map(kind => h('marker', {
+                key: kind, id: arrowId + '-' + kind, 'data-kind': kind, viewBox: '0 0 8 8', refX: 8, refY: 4,
+                markerWidth: 9, markerHeight: 9, markerUnits: 'userSpaceOnUse', orient: 'auto',
+              }, h('polygon', { className: 'lw-canvas-arrow', points: '0,0 8,4 0,8' })))),
+              paths.map(link => {
+                const from = byId.get(link.from), to = byId.get(link.to)
+                if (!from || !to) return null
+                const fromTitle = botDisplayRecord(from, fields, layout).title
+                const toTitle = botDisplayRecord(to, fields, layout).title
+                const label = LW(canvasLinkLabels[link.kind]) + ' · ' + fromTitle
+                  + (link.kind === 'related' ? ' — ' : ' → ') + toTitle
+                const inspect = () => onInspectLink?.({ kind: link.kind, from, to, fromTitle, toTitle })
+                return h('g', {
+                  key: JSON.stringify([link.from, link.to, link.kind]), 'data-from': link.from, 'data-to': link.to,
+                  'data-kind': link.kind, role: onInspectLink ? 'button' : undefined,
+                  tabIndex: onInspectLink ? 0 : undefined, 'aria-label': label, onClick: inspect,
+                  onKeyDown: event => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return
+                    event.preventDefault()
+                    inspect()
+                  },
+                }, h('title', null, label),
+                h('path', { className: 'lw-canvas-edge-line', d: link.d,
+                  markerEnd: link.kind !== 'related' ? 'url(#' + arrowId + '-' + link.kind + ')' : undefined }),
+                onInspectLink && h('path', { className: 'lw-canvas-edge-hit', d: link.d }))
+              })),
             star || bus ? positioned.map((row, index) => {
               const slot = busSlots.get(row.item.id) ?? index
-              return card(row, star ? starPosition(index)
+              return renderNode(row, star ? starPosition(index)
                 : { gridRow: slot % 2 + 1, gridColumn: Math.floor(slot / 2) + 1 }, slot)
             })
             : [...lanes.entries()].sort(([a], [b]) => layered ? a - b : 0).map(([label, entries]) =>
               h('div', { key: label, className: 'lw-canvas-lane' },
                 layered ? h('h3', null, label === 0 ? LW('起点') : LW('第 ') + (label + 1) + LW(' 层'))
-                  : typeof label === 'string' && h('h3', null, label), entries.map(row => card(row))))))))
+                  : typeof label === 'string' && h('h3', null, label), entries.map(row => renderNode(row))))))))
       return fullscreen ? ReactDOM.createPortal(h(Dialog, {
-        title: LW('全屏画布'), className: 'lw-canvas-full', close: () => setFullscreen(false),
+        title: LW('全屏画布'), className: 'lw-canvas-full', close: closeFullscreen,
       }, canvas), document.body) : canvas
     }
 
@@ -3871,10 +4065,13 @@ window.__ModuleLoader__.load({
       return h(ConversationActivity, { activity, onToggle: event => setOpen(event.currentTarget.open) })
     }
 
+    const botPaneLayoutKey = 'weave.bot.pane-layout'
+    const botPaneMirroredKey = 'weave.bot.pane-mirrored'
+
     function Panel({
       workspaceId, row, feature, featMeta, title, subtitle, emptyTitle,
       value, loadError, persisted, bot, live, liveError, openModels, onRenamed, fileChanges,
-      openExperiment, openTaskSource, sendTaskFollowUp,
+      openExperiment, openTaskSource, sendTaskFollowUp, renderTopbar,
     }) {
       const [busy, setBusy] = React.useState(false)
       const [error, setError] = React.useState('')
@@ -3886,12 +4083,25 @@ window.__ModuleLoader__.load({
       const [activeReview, setActiveReview] = React.useState(null)
       const [deletingItem, setDeletingItem] = React.useState(null)
       const [browserLink, setBrowserLink] = React.useState(null)
-      const [boardPercent, setBoardPercent] = React.useState(persisted.boardPercent || 58)
+      const [paneLayout, setPaneLayout] = React.useState(() => {
+        try { if (localStorage.getItem(botPaneLayoutKey) === 'stack') return 'stack' } catch {}
+        return 'side'
+      })
+      const [paneMirrored, setPaneMirrored] = React.useState(() => {
+        try { return localStorage.getItem(botPaneMirroredKey) === 'true' } catch { return false }
+      })
+      const [boardSizes, setBoardSizes] = React.useState(() => ({
+        side: persisted.sideBoardPercent || 54, stack: persisted.boardPercent || 58,
+      }))
+      const boardPercent = boardSizes[paneLayout]
+      const sideLayout = paneLayout === 'side'
+      const boardFirst = sideLayout === paneMirrored
       const [boardMinimized, setBoardMinimized] = React.useState(Boolean(persisted.boardMinimized))
       const [boardExpanded, setBoardExpanded] = React.useState(Boolean(persisted.boardExpanded))
       const boardId = React.useId()
       const [editingBot, setEditingBot] = React.useState(false)
       const [nodeEdit, setNodeEdit] = React.useState(null)
+      const [linkDetail, setLinkDetail] = React.useState(null)
       const [draftText, setDraftText] = React.useState(() => persisted?.draft || '')
       const [following, setFollowing] = React.useState(null)
       const [followDraft, setFollowDraft] = React.useState('')
@@ -3906,6 +4116,33 @@ window.__ModuleLoader__.load({
       const conversationRef = React.useRef(null)
       const followScroll = React.useRef(true)
       const mainRef = React.useRef(null)
+      const panePositions = React.useRef(null)
+      const paneAnimations = React.useRef([])
+      function capturePanePositions() {
+        const main = mainRef.current
+        panePositions.current = main && Array.from(main.children).map(element => element.getBoundingClientRect())
+        for (const animation of paneAnimations.current) animation.cancel()
+      }
+      React.useLayoutEffect(() => {
+        const previous = panePositions.current
+        panePositions.current = null
+        const main = mainRef.current
+        if (!previous || !main) return
+        paneAnimations.current = Array.from(main.children).flatMap((element, index) => {
+          const next = element.getBoundingClientRect()
+          if (!next.width || !next.height || element.classList.contains('lw-bot-divider')) return []
+          const before = index === 0 ? previous[0] : previous.at(-1)
+          const scale = next.width / element.offsetWidth || 1
+          const dx = Math.max(-32, Math.min(32, (before.left - next.left) / scale))
+          const dy = Math.max(-32, Math.min(32, (before.top - next.top) / scale))
+          const animation = animateBotUI(element, [
+            { opacity: .7, transform: 'translate(' + dx + 'px,' + dy + 'px)' },
+            { opacity: 1, transform: 'none' },
+          ], { duration: 240, easing: 'cubic-bezier(.2,.7,.2,1)' })
+          return animation ? [animation] : []
+        })
+        return () => { for (const animation of paneAnimations.current) animation.cancel() }
+      }, [paneLayout, paneMirrored, boardMinimized, boardExpanded])
       const updates = live?.messages || []
       const taskGroups = new Map()
       for (const item of updates) {
@@ -3918,10 +4155,23 @@ window.__ModuleLoader__.load({
       }))].sort((a, b) => messageTime(a) - messageTime(b))
       function resizeBoard(percent) {
         const next = Math.max(25, Math.min(80, Math.round(percent)))
-        persisted.boardPercent = next
-        setBoardPercent(next)
+        persisted[sideLayout ? 'sideBoardPercent' : 'boardPercent'] = next
+        setBoardSizes(current => ({ ...current, [paneLayout]: next }))
+      }
+      function togglePaneLayout() {
+        capturePanePositions()
+        const next = sideLayout ? 'stack' : 'side'
+        try { localStorage.setItem(botPaneLayoutKey, next) } catch {}
+        setPaneLayout(next)
+      }
+      function togglePaneMirror() {
+        capturePanePositions()
+        const next = !paneMirrored
+        try { localStorage.setItem(botPaneMirroredKey, String(next)) } catch {}
+        setPaneMirrored(next)
       }
       function toggleBoard(minimized) {
+        capturePanePositions()
         persisted.boardMinimized = minimized
         setBoardMinimized(minimized)
         if (minimized) {
@@ -3932,6 +4182,7 @@ window.__ModuleLoader__.load({
       }
       const minimizeBoard = () => toggleBoard(true)
       function toggleChatFill() {
+        capturePanePositions()
         const next = !boardExpanded
         persisted.boardExpanded = next
         setBoardExpanded(next)
@@ -3944,12 +4195,13 @@ window.__ModuleLoader__.load({
       function moveDivider(event) {
         if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
         const rect = mainRef.current.getBoundingClientRect()
-        resizeBoard(100 * (event.clientY - rect.top) / rect.height)
+        const position = sideLayout ? (event.clientX - rect.left) / rect.width : (event.clientY - rect.top) / rect.height
+        resizeBoard(100 * (boardFirst ? position : 1 - position))
       }
       React.useEffect(() => {
         const log = conversationRef.current
         if (log && followScroll.current) log.scrollTop = log.scrollHeight
-      }, [messages.length, updates.length, messages.at(-1)?.id, boardMinimized])
+      }, [messages.length, updates.length, messages.at(-1)?.id, boardMinimized, paneLayout, paneMirrored])
       const fileInputRef = React.useRef(null)
       const textareaRef = React.useRef(null)
       const changeDraft = text => { setDraftText(text); persisted.draft = text }
@@ -3996,7 +4248,15 @@ window.__ModuleLoader__.load({
       const savedItems = members.length ? [{ id: feature, label: title }, ...members].flatMap(member =>
         (value.rails[member.id] || []).map(item => ({ ...item, canvasRail: member.id, canvasGroup: member.label })))
         : value.rails[feature] || []
-      const items = [...savedItems, ...(live?.drafts || [])]
+      const drafts = live?.drafts || []
+      const items = [...savedItems, ...drafts]
+      const savedById = new Map(savedItems.map(item => [item.id, item]))
+      const replacementIds = new Map(savedItems.filter(item => item.publishedDraftId)
+        .map(item => [item.publishedDraftId, item.id]))
+      for (const draft of drafts) {
+        const id = draft.recordId || draft.duplicateOf
+        if (savedById.has(id)) replacementIds.set(draft.id, id)
+      }
       const action = (name, args) => project(workspaceId, name, args)
       const projectRecords = new Map(Object.values(value.rails).flat().map(entry => [entry.id, entry]))
       async function openSource(kind, target, page = 1) {
@@ -4031,7 +4291,13 @@ window.__ModuleLoader__.load({
           setSourcePreview(current => current?.file?.id === file.id ? { ...current, error: error.message } : current)
         }
       }
-      const ordered = items.slice().reverse()
+      const replaceDraftId = id => replacementIds.get(id) || id
+      const ordered = items.filter(item => !replacementIds.has(item.id)).map(item => item.canvasDraft && replacementIds.size ? {
+        ...item,
+        parentId: replaceDraftId(item.parentId),
+        ...Object.fromEntries(['dependsOn', 'relatedIds'].filter(field => item[field]?.length)
+          .map(field => [field, [...new Set(item[field].map(replaceDraftId))]])),
+      } : item).reverse()
       const botLayout = featMeta.layout
       const typedLayout = botLayout && botLayoutLabels[botLayout]
       const canvasReady = !featMeta.paradigm || Boolean(live || liveError)
@@ -4042,7 +4308,8 @@ window.__ModuleLoader__.load({
       const addNode = parent => setNodeEdit({ parent, title: '', text: '' })
       const deleteNode = item => setNodeEdit({ remove: item })
       const editLinks = (item, experimentSources = []) => setNodeEdit({
-        record: item, parentId: item.parentId || '', relatedIds: item.relatedIds || [], experimentSources,
+        record: item, parentId: item.parentId || '', dependsOn: item.dependsOn || [],
+        relatedIds: item.relatedIds || [], experimentSources,
       })
       const linkCandidates = nodeEdit?.record
         ? savedItems.filter(item => !item.automatic && item.id !== nodeEdit.record.id)
@@ -4050,6 +4317,20 @@ window.__ModuleLoader__.load({
       const linkLabel = item => [item.canvasGroup, botDisplayRecord(item, extensionFields, botLayout).title]
         .filter(Boolean).join(' · ')
       const parentCandidates = [...linkCandidates, ...(nodeEdit?.experimentSources || [])]
+      const prerequisiteCandidates = effectiveParadigm === 'goals'
+        ? linkCandidates.filter(item => (item.canvasRail || feature) === (nodeEdit?.record.canvasRail || feature))
+        : linkCandidates
+      const inspectLink = ({ kind, from, to, fromTitle, toTitle }) => {
+        setError('')
+        const owner = kind === 'related' && !to.relatedIds?.includes(from.id) ? from : to
+        const target = owner === to ? from.id : to.id
+        const directNote = owner.linkNotes?.[kind]?.[target]
+        const reverseNote = kind === 'related' ? from.linkNotes?.related?.[to.id] : null
+        const record = kind === 'branch' && to.parentId !== from.id ? null
+          : savedItems.find(item => item.id === (reverseNote && !directNote ? from.id : owner.id))
+        setLinkDetail({ kind, from, to, fromTitle, toTitle, record,
+          target: record?.id === from.id ? to.id : from.id, note: directNote || reverseNote || '' })
+      }
       const closeNodeEdit = () => { if (!busy) setNodeEdit(null) }
       async function saveNode(event) {
         event.preventDefault()
@@ -4064,10 +4345,12 @@ window.__ModuleLoader__.load({
           })
         }
         if (nodeEdit.record) {
-          const { record, parentId, relatedIds } = nodeEdit
+          const { record, parentId, dependsOn, relatedIds } = nodeEdit
+          const previous = record.dependsOn || []
+          const dependenciesChanged = dependsOn.length !== previous.length || dependsOn.some(id => !previous.includes(id))
           return run(async () => {
             await action('feature_push', { featureId: record.canvasRail || feature, id: record.id,
-              parentId: parentId || null, relatedIds })
+              parentId: parentId || null, relatedIds, ...(dependenciesChanged && { dependsOn }) })
             setNodeEdit(null)
           })
         }
@@ -4189,9 +4472,13 @@ window.__ModuleLoader__.load({
       const hasRecordTitle = activeItem?.title || extensionFields.some(field => field.role === 'title' && activeItem?.elements?.[field.name])
       const plainShortTitle = recordText.length <= 44 && !/[\n：:]/.test(recordText) ? recordText : ''
       const recordTitle = hasRecordTitle ? activeDisplay?.title : plainShortTitle
+      const currentResult = activeItem?.canvasDraft && savedById.get(replacementIds.get(activeItem.id) || activeItem.taskRecordId)
+      const previousResult = activeItem?.canvasDraft && savedItems.find(item => item.id === activeItem.previousTaskRecordId)
+      const processDrafts = activeItem && !activeItem.canvasDraft ? drafts.filter(item =>
+        replacementIds.get(item.id) === activeItem.id || item.taskRecordId === activeItem.id) : []
       const recordHeader = showRecordHeader && h('div', { className: 'lw-record-heading' },
         h('div', { className: 'lw-record-meta' },
-          h(Tag, { tone: 'neutral' }, entryBadgeLabel(activeItem)),
+          h(Tag, { tone: 'neutral' }, activeItem.canvasDraft ? canvasDraftLabel(activeItem) : entryBadgeLabel(activeItem)),
           activeItem.ts && h('time', { className: 'lw-hint lw-mono', dateTime: activeItem.ts }, fmtDateTime(activeItem.ts))),
         h('h2', null, inlineMarkdown(botPublicText(recordTitle || detailLabel), 'record-title')))
       const catIcon = key => ({
@@ -4254,14 +4541,17 @@ window.__ModuleLoader__.load({
                 LW(saved ? '查看成果' : '查看记录')))
           }))
       }
-      return h(BotReferences.Provider, { value: referenceHandlers }, h('section', {
+      return h(BotReferences.Provider, { value: referenceHandlers }, renderTopbar(h(React.Fragment, null,
+        h(PaneLayoutButton, { paneLayout, onToggleLayout: togglePaneLayout }),
+        h(CanvasIconButton, { label: LW('镜像画布与对话流'), icon: sideLayout ? 'panes-swap-side' : 'panes-swap-stack',
+          'aria-pressed': paneMirrored, 'data-pane-mirror-toggle': true, onClick: togglePaneMirror }))), h('section', {
         className: 'lw-panel lw-fbot-shell',
         style: { flex: 1, minHeight: 0, gap: 0, '--lw-paradigm-accent': paradigmAccent },
         'data-paradigm': paradigmAccent ? effectiveParadigm : undefined,
         'aria-label': title,
       },
-        h('div', { ref: mainRef, className: 'lw-fbot-main', 'data-canvas-minimized': boardMinimized,
-          'data-canvas-expanded': boardExpanded,
+        h('div', { ref: mainRef, className: 'lw-fbot-main', 'data-pane-layout': paneLayout, 'data-canvas-minimized': boardMinimized,
+          'data-canvas-expanded': boardExpanded, 'data-pane-mirrored': paneMirrored,
           style: { '--lw-board-size': boardPercent + '%' } },
           h('div', { className: 'lw-fbot-scroll' },
             h('div', { className: 'lw-fbot-center' },
@@ -4276,10 +4566,10 @@ window.__ModuleLoader__.load({
                     h(Icon, { name: botDisplayIcon(featMeta) })),
                   h('span', { className: 'lw-bot-pill-name' }, title),
                   h('span', { className: 'lw-bot-pill-edit', 'aria-hidden': true }, h(Icon, { name: 'edit' }))),
-                boardMinimized ? Btn({ variant: 'ghost', size: 'xs', 'data-canvas-restore': true, 'aria-controls': boardId,
-                  onClick: () => toggleBoard(false) }, LW('显示画布'))
-                  : !typedLayout && Btn({ variant: 'ghost', size: 'xs', 'data-canvas-minimize': true,
-                    onClick: minimizeBoard }, LW('最小化画布'))),
+                boardMinimized ? h(CanvasIconButton, { label: LW('显示画布'), icon: 'canvas-restore',
+                  'data-canvas-restore': true, 'aria-controls': boardId, onClick: () => toggleBoard(false) })
+                  : !typedLayout && h(CanvasIconButton, { label: LW('最小化画布'), icon: 'canvas-minimize',
+                    'data-canvas-minimize': true, onClick: minimizeBoard })),
 
               h('div', { className: 'lw-bot-board', 'data-canvas': Boolean(typedLayout), id: boardId, hidden: boardMinimized },
               !boardMinimized && boardNotices,
@@ -4287,8 +4577,9 @@ window.__ModuleLoader__.load({
               engineering && h(React.Suspense, { fallback: h('p', { className: 'lw-hint' }, LW('正在读取实验…')) },
                 h(BotExperiments, { workspaceId, featureId: feature, updatedEvent: updated, layout: botLayout, fields: extensionFields, activeTasks: live?.active,
                   records: ordered.map(item => ({ ...botDisplayRecord(item, extensionFields, botLayout), id: item.id, item })),
-                  addNode, deleteNode, editLinks, busy, onMinimize: minimizeBoard,
-                  onFillChat: toggleChatFill, chatFilled: boardExpanded, canvasReady, canvasHidden: boardMinimized,
+                  addNode, deleteNode, editLinks, onInspectLink: inspectLink, busy, onMinimize: minimizeBoard,
+                  onFillChat: toggleChatFill, chatFilled: boardExpanded, paneLayout,
+                  canvasReady, canvasHidden: boardMinimized,
                   openRecord: record => openEntry(record.item) })),
               !hasContent && !engineering ? h('div', { className: 'lw-fbot-empty-wrap' },
                 h('div', { className: 'lw-empty' },
@@ -4375,6 +4666,16 @@ window.__ModuleLoader__.load({
                             } }),
                           h(RecordMedia, { key: activeItem.id, item: activeItem }),
                           h(BotSources, { item: activeItem }),
+                          (currentResult || previousResult) && h('div', { className: 'lw-actions' },
+                            currentResult && Btn({ size: 'xs', onClick: () => openEntry(currentResult) },
+                              LW(replacementIds.has(activeItem.id) ? '查看对应正式卡片' : '查看本次成果')),
+                            previousResult && Btn({ size: 'xs', onClick: () => openEntry(previousResult) }, LW('查看上次成果'))),
+                          processDrafts.length > 0 && h('section', { 'aria-label': LW('过程草稿') },
+                            h('strong', null, LW('过程草稿')),
+                            h('ul', { className: 'lw-bot-sources' }, processDrafts.map(draft =>
+                              h('li', { key: draft.id }, h('button', {
+                                type: 'button', className: 'lw-bot-reference', onClick: () => openEntry(draft),
+                              }, cardOverviewText(draft.title, 80)))))),
                           attachment && /\.(csv|tsv)$/i.test(attachment.path || '') &&
                             h(RecordTableChart, { key: attachment.id, workspaceId, id: attachment.id }),
                           attachment && h('div', { className: 'lw-actions lw-canvas-attachment' },
@@ -4415,8 +4716,9 @@ window.__ModuleLoader__.load({
 
                   typedLayout && !engineering && h(BotParadigmView, {
                     layout: botLayout, items: ordered, fields: extensionFields, activeId: activeItemId, openEntry, busy,
-                    addNode, deleteNode, editLinks, emptyTitle, activeTasks: live?.active, onMinimize: minimizeBoard,
-                    onFillChat: toggleChatFill, chatFilled: boardExpanded, canvasReady, canvasHidden: boardMinimized,
+                    addNode, deleteNode, editLinks, onInspectLink: inspectLink, emptyTitle, activeTasks: live?.active, onMinimize: minimizeBoard,
+                    onFillChat: toggleChatFill, chatFilled: boardExpanded, paneLayout,
+                    canvasReady, canvasHidden: boardMinimized,
                     toggleGoal: effectiveParadigm === 'goals' ? item => run(() =>
                       action('feature_push', { featureId: item.canvasRail || feature, id: item.id, done: !item.done })) : null,
                   }),
@@ -4489,13 +4791,17 @@ window.__ModuleLoader__.load({
                           h(ExtensionElements, { values: item.elements }),
                           h(EntrySource, { item }))
                       }))))))),
-          !boardMinimized && h('div', { className: 'lw-bot-divider', role: 'separator', tabIndex: 0,
-            'aria-label': LW('调整画布与对话高度'), 'aria-orientation': 'horizontal',
+          !boardMinimized && !boardExpanded && h('div', { className: 'lw-bot-divider', role: 'separator', tabIndex: 0,
+            'aria-label': sideLayout ? LW('调整画布与对话宽度') : LW('调整画布与对话高度'),
+            'aria-orientation': sideLayout ? 'vertical' : 'horizontal',
             'aria-valuemin': 25, 'aria-valuemax': 80, 'aria-valuenow': boardPercent,
             onPointerDown: event => { if (event.button === 0) event.currentTarget.setPointerCapture(event.pointerId) },
             onPointerMove: moveDivider,
             onKeyDown: event => {
-              const changes = { ArrowUp: boardPercent - 4, ArrowDown: boardPercent + 4, Home: 25, End: 80 }
+              const step = boardFirst ? 4 : -4
+              const changes = sideLayout ? { ArrowLeft: boardPercent - step, ArrowRight: boardPercent + step }
+                : { ArrowUp: boardPercent - step, ArrowDown: boardPercent + step }
+              Object.assign(changes, { Home: 25, End: 80 })
               if (changes[event.key] === undefined) return
               event.preventDefault()
               resizeBoard(changes[event.key])
@@ -4604,6 +4910,36 @@ window.__ModuleLoader__.load({
                   onClick: () => openSource('file', sourcePreview.file, sourcePreview.entry.page + 1) }, LW('下一页'))),
               Btn({ size: 'xs', onClick: () => downloadSource(sourcePreview.file) }, LW('下载 ') + sourcePreview.file.name)))),
         document.body),
+        linkDetail && ReactDOM.createPortal(h(Dialog, {
+          title: LW(canvasLinkLabels[linkDetail.kind]), close: () => { if (!busy) setLinkDetail(null) },
+        }, h('div', { className: 'lw-form' },
+          h('p', { className: 'lw-canvas-link-basis' },
+            linkDetail.fromTitle, linkDetail.kind === 'related' ? ' — ' : ' → ', linkDetail.toTitle),
+          linkDetail.record ? h('form', { className: 'lw-form', onSubmit: event => {
+            event.preventDefault()
+            const { record, kind, target, note } = linkDetail
+            run(async () => {
+              await action('feature_push', { featureId: record.canvasRail || feature, id: record.id,
+                linkNote: { kind, target, text: note } })
+              setLinkDetail(null)
+            })
+          } }, h('label', null, LW('关系依据'),
+            h('textarea', { className: 'lw-textarea', value: linkDetail.note, maxLength: 2000, rows: 3,
+              placeholder: LW('写下为什么这两张卡片有这条关系'),
+              onChange: event => setLinkDetail({ ...linkDetail, note: event.target.value }) })),
+          h('div', { className: 'lw-actions' },
+            Btn({ variant: 'primary', size: 'xs', type: 'submit', disabled: busy }, LW('保存依据'))))
+            : h('p', { className: 'lw-canvas-link-basis' }, linkDetail.note || LW('这条连线暂无单独记录的依据。')),
+          [linkDetail.from, linkDetail.to].map((item, index) =>
+            h('div', { key: item.id, className: 'lw-canvas-link-source' },
+              h('strong', null, index === 0 ? linkDetail.fromTitle : linkDetail.toTitle),
+              (item.relationLabel || item.relationStatus) && h('p', { className: 'lw-hint' },
+                [item.relationLabel, item.relationStatus].filter(Boolean).join(' · ')),
+              (item.summary || item.text) && h('p', { className: 'lw-hint' }, cardOverviewText(item.summary || item.text, 180)),
+              h(BotSources, { item }),
+              mdSafeUrl(item.url) && h('a', { className: 'lw-bot-reference', href: mdSafeUrl(item.url),
+                target: '_blank', rel: 'noopener noreferrer' }, LW('打开卡片原文')))),
+          error && h('p', { role: 'alert', className: 'lw-error' }, error))), document.body),
         nodeEdit && ReactDOM.createPortal(h(Dialog, {
           title: nodeEdit.remove ? LW('删除节点') : nodeEdit.record ? LW('编辑连线')
             : nodeEdit.parent ? LW('添加分支') : LW('添加节点'), close: closeNodeEdit,
@@ -4619,6 +4955,14 @@ window.__ModuleLoader__.load({
                     ? [{ value: nodeEdit.record.parentId, label: LW('当前关联的来源') }] : []),
                   ...parentCandidates.map(item => ({ value: item.id, label: linkLabel(item) })),
                 ] })),
+              h('fieldset', { className: 'lw-canvas-link-list' },
+                h('legend', null, LW('前置依赖')),
+                !prerequisiteCandidates.length && h('span', { className: 'lw-hint' }, LW('当前没有可选的前置卡片。')),
+                prerequisiteCandidates.map(item => h('label', { key: item.id },
+                  h('input', { type: 'checkbox', checked: nodeEdit.dependsOn.includes(item.id), onChange: event =>
+                    setNodeEdit({ ...nodeEdit, dependsOn: event.target.checked
+                      ? [...nodeEdit.dependsOn, item.id] : nodeEdit.dependsOn.filter(id => id !== item.id) }) }),
+                  linkLabel(item)))),
               h('fieldset', { className: 'lw-canvas-link-list' },
                 h('legend', null, LW('其他关联')),
                 !linkCandidates.length && h('span', { className: 'lw-hint' }, LW('先在画布上添加其他卡片。')),
@@ -4646,6 +4990,15 @@ window.__ModuleLoader__.load({
     }
 
     const paths = {
+      'panes-side': 'M3 5h18v14H3z M11 5v14 M5.5 9h2.8 M5.5 12h3.3 M5.5 15h2.2',
+      'panes-stack': 'M3 5h18v14H3z M3 12h18 M6 15h6 M6 17h9',
+      'panes-swap-side': 'M12 4v16 M9 9H3l3-3 M3 9l3 3 M15 15h6l-3-3 M21 15l-3 3',
+      'panes-swap-stack': 'M4 12h16 M9 9V3L6 6 M9 3l3 3 M15 15v6l-3-3 M15 21l3-3',
+      'canvas-full': 'M9 4H4v5 M15 4h5v5 M20 15v5h-5 M4 15v5h5',
+      'canvas-expand': 'M3 5h18v14H3z M12 12H6 M9 9l-3 3 3 3 M13 12h5',
+      'canvas-expand-down': 'M3 5h18v14H3z M12 8v8 M9 13l3 3 3-3',
+      'canvas-minimize': 'M4 5h16v11H4z M4 19h16 M9 10l3 3 3-3',
+      'canvas-restore': 'M4 8h16v11H4z M4 5h16 M9 14l3-3 3 3',
       mindmap: 'M12 6v5M5 17v-5h14v5M12 12v5M9 3h6v4H9zM2 17h6v4H2zM9 17h6v4H9zM16 17h6v4h-6z',
       rewind: 'M3 11h11a5 5 0 0 1 0 10h-2M3 11l5-5M3 11l5 5',
       folder: 'M2.5 5.5h6l2 2h11v11.5H2.5z', chat: 'M4 4.5h16v12H10l-5.5 4V16H4z',
@@ -5898,9 +6251,50 @@ window.__ModuleLoader__.load({
           binding && h(GlobalConversationProgress, { key: sessionId, binding }),
           h(ProjectHandoffs, { key: 'handoffs:' + sessionId, sessionId }))
       })
+      const emptyFileActivity = { subscribe: () => () => {}, getSnapshot: () => null }
       function ProjectConversationFiles({ sessionId, binding }) {
         const [changes, setChanges] = React.useState([])
-        const [waitingApproval, setWaitingApproval] = React.useState(false)
+        const [nativeChanges, setNativeChanges] = React.useState(() => new Map())
+        const [expanded, setExpanded] = React.useState(false)
+        const listId = React.useId()
+        const showNative = useStore(ctx.configForms?.developerTools?.enabled || emptyFileActivity) === true
+        const history = useStore(binding?.eventSource || emptyFileActivity)
+        const entries = history?.entries || []
+        const approvals = new Set()
+        for (const { event } of entries) {
+          if (event.type === 'approval/asked') approvals.add(event.data.id)
+          if (event.type === 'approval/decided') approvals.delete(event.data.id)
+          if (event.type === 'turn/end') approvals.clear()
+        }
+        const announcements = new Map()
+        for (const { event } of entries) {
+          if (event.type === 'workspace/changes') announcements.set(event.data.turn, event)
+        }
+        const nativeKey = JSON.stringify([...announcements.values()].slice(-30)
+          .map(({ seq, time, data }) => ({ seq, time, turn: data.turn })))
+        React.useEffect(() => {
+          const controller = new AbortController()
+          const records = JSON.parse(nativeKey)
+          if (!records.length) {
+            setNativeChanges(new Map())
+            return () => controller.abort()
+          }
+          Promise.all(records.map(async record => {
+            const url = new URL('api/changes.summary', document.baseURI)
+            url.search = new URLSearchParams({ sessionId, seq: record.seq }).toString()
+            try {
+              const response = await fetch(url, { signal: controller.signal })
+              if (response.ok) {
+                const { files } = await response.json()
+                return Array.isArray(files) ? files.map((file, index) => [file.display, { ...record, index }]) : []
+              }
+            } catch {}
+            return []
+          })).then(results => {
+            if (!controller.signal.aborted) setNativeChanges(new Map(results.flat()))
+          })
+          return () => controller.abort()
+        }, [sessionId, nativeKey])
         React.useEffect(() => {
           const controller = new AbortController()
           let loading = false
@@ -5912,34 +6306,43 @@ window.__ModuleLoader__.load({
               if (!controller.signal.aborted) setChanges(events)
             } catch {} finally { loading = false }
           }
-          function approvals() {
-            const pending = new Set()
-            for (const { event } of binding?.eventSource?.getSnapshot()?.entries || []) {
-              if (event.type === 'approval/asked') pending.add(event.data.id)
-              if (event.type === 'approval/decided') pending.delete(event.data.id)
-              if (event.type === 'turn/end') pending.clear()
-            }
-            setWaitingApproval(pending.size > 0)
-          }
-          approvals()
           void refresh()
-          const off = binding?.eventSource?.subscribe(approvals)
           const timer = setInterval(refresh, 2500)
-          return () => { controller.abort(); clearInterval(timer); off?.() }
-        }, [sessionId, binding])
+          return () => { controller.abort(); clearInterval(timer) }
+        }, [sessionId])
         const scope = '[data-conversation-session="' + CSS.escape(sessionId) + '"]'
-        const replacedTools = ['[data-tool^="labweave_"]', '[data-tool^="mcp__labweave__"]',
-          ...['write', 'edit', 'bash', 'powershell', 'pwsh', 'apply_patch'].map(name => '[data-tool="' + name + '"]')].join(',')
         const labels = { added: LW('新增'), changed: LW('修改'), removed: LW('删除') }
+        const latest = new Map()
+        for (const change of changes) {
+          for (const file of change.files) {
+            if (latest.has(file.path)) continue
+            const native = nativeChanges.get(file.path)
+            const review = native && new Date(native.time) >= new Date(change.createdAt) ? native : null
+            latest.set(file.path, { ...file, review })
+          }
+        }
+        const remaining = [...latest.values()].filter(file => !(binding && showNative && file.review))
         return h(React.Fragment, null,
-          !waitingApproval && h('style', null,
-            scope + ' [data-chat-call-id]:has(:is(' + replacedTools + ')){display:none!important}'),
-          changes.length > 0 && h('details', { className: 'lw-project-file-changes' },
-            h('summary', null, LW('项目文件变更')),
-            h('ul', { 'aria-label': LW('项目文件变更记录') },
-              changes.flatMap(change => change.files.map(file => h('li', { key: change.id + ':' + file.path },
-                h(Tag, { tone: file.action === 'removed' ? 'warning' : 'neutral' }, labels[file.action]),
-                h('span', null, file.path)))))))
+          binding && !approvals.size && h('style', null,
+            scope + ' [data-chat-call-id]:has(:is([data-tool^="labweave_"],[data-tool^="mcp__labweave__"])){display:none!important}'),
+          remaining.length > 0 && h('section', { className: 'lw-project-file-changes' },
+            h('button', { type: 'button', className: 'lw-file-change-header', 'aria-expanded': expanded,
+              'aria-controls': listId, onClick: () => setExpanded(open => !open) },
+              h('span', { className: 'lw-file-change-tile' }, h(Icon, { name: 'file' })),
+              h('span', { className: 'lw-file-change-headline' },
+                h('span', null, LW('项目文件变更')),
+                h('span', { className: 'lw-file-change-count' }, remaining.length + LW(' 个文件'))),
+              h('span', { className: 'lw-file-change-chevron' }, h(Icon, { name: 'right' }))),
+            h('ul', { id: listId, hidden: !expanded, 'aria-label': LW('项目文件变更记录') },
+              remaining.map(file => h('li', { key: file.path }, h(binding && file.review ? 'button' : 'div', {
+                className: 'lw-file-change-row',
+                ...(binding && file.review && { type: 'button', onClick: () => {
+                  const { seq, turn, index } = file.review
+                  ctx.sidebarRight.openResource('dsh-resource://changes-review/session/' +
+                    encodeURIComponent(sessionId) + '/' + seq + '/' + turn, { params: { index } })
+                } }),
+              }, h('span', { 'data-path': '', title: file.path }, file.path),
+              h('span', { 'data-action': file.action }, labels[file.action])))))))
       }
       slot('conversation.input.dock', { id: 'labweave-project-file-changes', order: 12, inject: sessionId => ({ sessionId }) }, ({ sessionId }) => {
         const workspace = useStore(ctx.workspaces.list).items.find(w => w.sessionIds.includes(sessionId))
@@ -6183,7 +6586,9 @@ window.__ModuleLoader__.load({
         const { value, error } = useProject(row.workspaceId, 'navigation')
         const [chatsOpen, setChatsOpen] = React.useState(true)
         const [archiveOpen, setArchiveOpen] = React.useState(false)
+        const [openClusters, setOpenClusters] = React.useState({})
         const archiveId = React.useId()
+        const clusterGroupPrefix = React.useId()
         const featureList = projectFeatures(row, value)
         const archivedBots = featureList.filter(bot => bot.archived)
         const hasArchivedBots = archivedBots.length > 0
@@ -6206,30 +6611,39 @@ window.__ModuleLoader__.load({
             const id = feat.id
             const label = labels[id] || feat.label || features[id] || id
             const members = featureList.filter(bot => bot.clusterParent === id && !bot.archived)
-            const membersStatus = aggregateActivity(members.map(member => botActivity(row, member.id)))
+            const clusterOpen = Boolean(openClusters[id])
+            const membersId = clusterGroupPrefix + '-' + id
+            const membersStatus = !clusterOpen && aggregateActivity(members.map(member => botActivity(row, member.id)))
+            const toggleLabel = (clusterOpen ? LW('收起') : LW('展开')) + '「' + label + '」' + LW('的来源 Bot')
             return h(React.Fragment, { key: id },
-              h('div', { className: 'lw-row' }, entry(id, label, botDisplayIcon(feat), () => {
-                if (id === 'chat') {
-                  if (matches.length > 0) setChatsOpen(prev => !prev)
-                  else setChatsOpen(true)
-                  return openPage(row, id)
-                }
-                openPage(row, id)
-              }, activePage === id || splitPanes.some(p => p.workspaceId === row.workspaceId && p.feature === id),
-              {
-                ...(id === 'chat' && matches.length > 0 ? { 'aria-expanded': chatsOpen, title: chatsOpen ? LW('点击收起对话历史') : LW('点击展开对话历史') } : {}),
-                ...(id !== 'chat' && paradigmKeyFor(feat) ? { 'data-paradigm': paradigmKeyFor(feat), style: { '--lw-paradigm-accent': paradigmAccentFor(feat) } } : {}),
-              }),
-              h('span', { className: 'lw-row-tools' },
-                id === 'chat' && tool('plus', LW('在') + row.name + LW('中新建对话'), () => { setChatsOpen(true); startProjectChat(row) }),
-                onRenameFeature && tool('edit', LW('重命名功能 ') + label, () => onRenameFeature(row, feat, label)),
-                id !== 'chat' && onDeleteFeature && tool('trash', LW('删除功能 ') + label, () => onDeleteFeature(row, feat, label), 'lw-tool-danger'),
-                tool('split', LW('分屏打开') + label, () => splitPage(row, id)))),
-              members.length > 0 && h('details', { className: 'lw-sessions' },
-                h('summary', activityDescription(membersStatus), LW('功能 Bot') + ' · ' + members.length, activityDot(membersStatus)),
+              h('div', { className: 'lw-row' },
+                members.length > 0 && h('button', { type: 'button', className: 'lw-tool lw-cluster-toggle',
+                  'aria-label': toggleLabel, title: toggleLabel, 'aria-expanded': clusterOpen, 'aria-controls': membersId,
+                  ...activityDescription(membersStatus),
+                  onClick: event => { event.stopPropagation(); setOpenClusters(prev => ({ ...prev, [id]: !prev[id] })) },
+                }, h(Icon, { name: clusterOpen ? 'down' : 'right' }), activityDot(membersStatus)),
+                entry(id, label, botDisplayIcon(feat), () => {
+                  if (id === 'chat') {
+                    if (matches.length > 0) setChatsOpen(prev => !prev)
+                    else setChatsOpen(true)
+                    return openPage(row, id)
+                  }
+                  openPage(row, id)
+                }, activePage === id || splitPanes.some(p => p.workspaceId === row.workspaceId && p.feature === id),
+                {
+                  ...(id === 'chat' && matches.length > 0 ? { 'aria-expanded': chatsOpen, title: chatsOpen ? LW('点击收起对话历史') : LW('点击展开对话历史') } : {}),
+                  ...(id !== 'chat' && paradigmKeyFor(feat) ? { 'data-paradigm': paradigmKeyFor(feat), style: { '--lw-paradigm-accent': paradigmAccentFor(feat) } } : {}),
+                }),
+                h('span', { className: 'lw-row-tools' },
+                  id === 'chat' && tool('plus', LW('在') + row.name + LW('中新建对话'), () => { setChatsOpen(true); startProjectChat(row) }),
+                  onRenameFeature && tool('edit', LW('重命名功能 ') + label, () => onRenameFeature(row, feat, label)),
+                  id !== 'chat' && onDeleteFeature && tool('trash', LW('删除功能 ') + label, () => onDeleteFeature(row, feat, label), 'lw-tool-danger'),
+                  tool('split', LW('分屏打开') + label, () => splitPage(row, id)))),
+              members.length > 0 && h('div', { className: 'lw-sessions', id: membersId, role: 'group',
+                'aria-label': '「' + label + '」' + LW('的来源 Bot'), hidden: !clusterOpen },
                 members.map(member => h('div', { className: 'lw-row', key: member.id },
-                  entry(member.id, member.label, botDisplayIcon(member),
-                    () => openPage(row, member.id), activePage === member.id,
+                  entry(member.id, labels[member.id] || member.label, botDisplayIcon(member),
+                    () => openPage(row, member.id), activePage === member.id || splitPanes.some(p => p.workspaceId === row.workspaceId && p.feature === member.id),
                     paradigmKeyFor(member) ? { 'data-paradigm': paradigmKeyFor(member), style: { '--lw-paradigm-accent': paradigmAccentFor(member) } } : {})))),
               id === 'chat' && (chatsOpen || Boolean(filter)) && matches.length > 0 && h('div', { className: 'lw-sessions', 'aria-label': row.name + LW(' 对话') },
                 matches.map(s => h('div', { className: 'lw-row', key: s.id },
@@ -6789,8 +7203,8 @@ window.__ModuleLoader__.load({
         const emptyTitle = featMeta.emptyText || featureEmpties[feature] || `还没有收到来自「${title}」的推送内容`
         const persisted = paneStateFor(row.workspaceId, feature)
         const bot = useFeatureBot(row, feature, featMeta, value)
-        return h('main', { className: 'lw-page', 'data-feature': feature, 'aria-label': row.name + '的' + title },
-          h('div', { className: 'lw-page-topbar' },
+        function renderTopbar(paneControls) {
+          return h('div', { className: 'lw-page-topbar' },
             h('div', { className: 'lw-actions' },
               paneIndex === 0 && h('button', {
                 type: 'button', className: 'lw-companion-btn', 'aria-pressed': !!chatSplit,
@@ -6799,14 +7213,17 @@ window.__ModuleLoader__.load({
                 onClick: () => toggleCompanionChat(row),
               }, h(Icon, { name: 'chat' }), h('span', null, chatSplit ? LW('收起聊天') : LW('聊天')))),
             h('div', { className: 'lw-actions' },
+              paneControls,
               paneCount > 1 && h('button', {
                 type: 'button', className: 'lw-pane-close',
                 'aria-label': LW('关闭分栏 ') + title,
                 title: LW('关闭分栏 ') + title,
                 onClick: () => closePane(pane),
-              }, h(Icon, { name: 'close' })))),
+              }, h(Icon, { name: 'close' }))))
+        }
+        return h('main', { className: 'lw-page', 'data-feature': feature, 'aria-label': row.name + '的' + title },
           h(Panel, {
-            workspaceId: row.workspaceId, row, feature, featMeta, title, subtitle, emptyTitle,
+            workspaceId: row.workspaceId, row, feature, featMeta, title, subtitle, emptyTitle, renderTopbar,
             value, loadError, persisted, bot, live, liveError, openModels: () => openSettingsRef?.('models'), draft, onRenamed: refresh,
             fileChanges: bot.sessionId && h(ProjectConversationFiles, { key: bot.sessionId, sessionId: bot.sessionId }),
             openTaskSource: (sid, messageId) => openTaskSource(row, sid, messageId),
@@ -7882,10 +8299,10 @@ window.__ModuleLoader__.load({
             const zoom = stack.currentCSSZoom || 1
             const mainRect = main?.getBoundingClientRect()
             if (mainRect && mainRect.width > 40) {
-              stack.style.setProperty('--lw-completion-right', Math.max(0, window.innerWidth - mainRect.right) / zoom + 16 + 'px')
+              stack.style.setProperty('--lw-completion-center', (mainRect.left + mainRect.width / 2) / zoom + 'px')
               stack.style.setProperty('--lw-completion-max', mainRect.width / zoom + 'px')
             } else {
-              stack.style.removeProperty('--lw-completion-right')
+              stack.style.removeProperty('--lw-completion-center')
               stack.style.setProperty('--lw-completion-max', window.innerWidth / zoom + 'px')
             }
             const { left, right, height } = stack.getBoundingClientRect()

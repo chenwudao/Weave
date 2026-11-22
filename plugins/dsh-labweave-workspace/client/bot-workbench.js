@@ -1,4 +1,4 @@
-export function createWorkbenchViews(React, project, { Btn, Icon, Tag, Select, fmtDateTime, Canvas }) {
+export function createWorkbenchViews(React, project, { Btn, Icon, Tag, Select, fmtDateTime, Canvas, CanvasIconButton }) {
   const h = React.createElement
   const states = {
     WAITING_APPROVAL: '待批准', QUEUED: '排队中', RUNNING: '运行中', SUCCEEDED: '已完成',
@@ -140,8 +140,8 @@ export function createWorkbenchViews(React, project, { Btn, Icon, Tag, Select, f
       h('details', { className: 'lw-bot-disclosure' }, h('summary', null, '原始数据'), raw))
   }
 
-  function Experiments({ workspaceId, featureId, updatedEvent, layout, fields, records = [], openRecord, addNode, deleteNode, editLinks, busy, activeTasks,
-    onMinimize, onFillChat, chatFilled, canvasReady, canvasHidden }) {
+  function Experiments({ workspaceId, featureId, updatedEvent, layout, fields, records = [], openRecord, addNode, deleteNode, editLinks, onInspectLink, busy, activeTasks,
+    onMinimize, onFillChat, chatFilled, paneLayout, canvasReady, canvasHidden }) {
     const [items, setItems] = React.useState(null)
     const [selected, select] = React.useState(null)
     const [detail, setDetail] = React.useState(null)
@@ -186,7 +186,7 @@ export function createWorkbenchViews(React, project, { Btn, Icon, Tag, Select, f
       }))
       return h('section', { className: 'lw-bot-workstack lw-paradigm-view', 'aria-label': '实验线程', 'data-bot-canvas': true },
         error && alert(error),
-        h(Canvas, { layout, fields, busy, activeTasks, onMinimize, onFillChat, chatFilled,
+        h(Canvas, { layout, fields, onInspectLink, busy, activeTasks, onMinimize, onFillChat, chatFilled, paneLayout,
           canvasReady: canvasReady && Boolean(items || error), canvasHidden,
           emptyTitle: !items && !error ? '正在读取实验…' : '这个 Bot 的实验运行、日志和产物会显示在这里。',
           addNode: item => addNode(item?.experiment.item || item),
@@ -215,9 +215,12 @@ export function createWorkbenchViews(React, project, { Btn, Icon, Tag, Select, f
     return h('section', { className: 'lw-bot-workstack lw-paradigm-view', 'aria-label': '实验详情' },
       h('div', { className: 'lw-bot-workline' }, Btn({ variant: 'ghost', size: 'xs', onClick: () => show(null) }, '返回实验'),
         status(detail || selected),
-        onFillChat && Btn({ variant: 'ghost', size: 'xs', 'aria-label': chatFilled ? '展开对话流' : '占满对话流并收起对话',
-          'aria-pressed': Boolean(chatFilled), 'data-canvas-fill-chat': true, onClick: onFillChat }, chatFilled ? '显示对话' : '占满对话'),
-        onMinimize && Btn({ variant: 'ghost', size: 'xs', 'data-canvas-minimize': true, onClick: onMinimize }, '最小化画布')),
+        onFillChat && h(CanvasIconButton, { label: chatFilled ? '恢复对话流' : '画布占用对话区',
+          icon: chatFilled ? (paneLayout === 'stack' ? 'panes-stack' : 'panes-side')
+            : (paneLayout === 'stack' ? 'canvas-expand-down' : 'canvas-expand'),
+          'aria-pressed': Boolean(chatFilled), 'data-canvas-fill-chat': true, onClick: onFillChat }),
+        onMinimize && h(CanvasIconButton, { label: '最小化画布', icon: 'canvas-minimize',
+          'data-canvas-minimize': true, onClick: onMinimize })),
       h('h3', null, selected.title),
       error && alert(error),
       detail ? h(React.Fragment, null,
@@ -230,7 +233,7 @@ export function createWorkbenchViews(React, project, { Btn, Icon, Tag, Select, f
         layout === 'matrix' && runs.length > 0 && h(Canvas, { layout, label: '并行运行',
           items: runs.map(run => ({ id: run.id, title: '种子 ' + run.seed, text: '样本数 ' + run.budget,
             canvasGroup: run.method, canvasStatus: states[run.status] || run.status })) }),
-        layout !== 'matrix' && detail.steps?.length > 0 && h(Canvas, { layout: 'path', label: '实验阶段',
+        layout !== 'matrix' && detail.steps?.length > 0 && h(Canvas, { layout: 'path', label: '实验阶段', onInspectLink,
           items: detail.steps.map(step => ({ ...step, canvasStatus: states[step.status] || step.status })) }),
         detail.error && alert(detail.error),
         (detail.stdout || detail.stderr) && h('details', { className: 'lw-bot-disclosure' },

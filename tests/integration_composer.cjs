@@ -27,13 +27,25 @@ async function main() {
     await assistantBadge('completed').waitFor()
     const toast = page.locator('.lw-completion-toast').filter({ hasText: '助手已完成' })
     await toast.waitFor()
-    const desktop = await toast.boundingBox()
-    assert.ok(desktop.x > 1280 / 2 && desktop.y > 820 / 2 && desktop.x + desktop.width <= 1280)
+    const checkToastPosition = () => page.waitForFunction(() => {
+      const toast = document.querySelector('.lw-completion-toast')
+      const main = document.querySelector('[class*="centerCol"]')
+      const composer = [...document.querySelectorAll('[data-composer-card]')]
+        .filter(element => element.getClientRects().length).at(-1)
+      if (!toast || !main || !composer) return false
+      const card = toast.getBoundingClientRect()
+      const column = main.getBoundingClientRect()
+      const close = toast.querySelector('.lw-tool').getBoundingClientRect()
+      return Math.abs(card.left + card.width / 2 - column.left - column.width / 2) < 2 &&
+        Math.abs(card.top + card.height / 2 - close.top - close.height / 2) < 2 &&
+        card.left >= 0 && card.right <= innerWidth && card.top >= 0 &&
+        card.bottom <= composer.getBoundingClientRect().top
+    })
+    await checkToastPosition()
     await page.setViewportSize({ width: 850, height: 760 })
     await page.emulateMedia({ colorScheme: 'dark' })
     await page.evaluate(() => { document.body.style.zoom = '1.25' })
-    const narrow = await toast.boundingBox()
-    assert.ok(narrow.x > 0 && narrow.x + narrow.width <= 850 && narrow.y + narrow.height <= 760)
+    await checkToastPosition()
     await page.evaluate(() => { document.body.style.zoom = '' })
     await page.setViewportSize({ width: 1280, height: 820 })
     await page.emulateMedia({ colorScheme: 'light' })

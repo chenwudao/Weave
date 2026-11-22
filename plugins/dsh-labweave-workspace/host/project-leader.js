@@ -33,6 +33,35 @@ const answerContext = decision => context('labweave-research-answers',
   'User decisions submitted for this request. Apply them before earlier messages. Keep each action within the confirmed stage.\n'
   + JSON.stringify(decision.answers))
 
+export const botRoutingGuidance = [
+  'Before dispatching, compare the current goal, inputs, deliverable and acceptance criteria with the project’s Bot duties, related tasks, saved results and active work.',
+  'If an existing result satisfies the request, cite it. If an equivalent task is already queued or running, report its actual status and coordinate any additions with that work instead of starting a duplicate.',
+  'For a revision, follow-up or continuation of the same deliverable, prefer its original Bot when still suitable and pass the prior task and reusable results. For an independent deliverable, choose an available Bot whose duties, paradigm, relevant work and permissions fit it. A matching topic, keyword or paradigm by itself is insufficient.',
+  'Create a Bot only when no available existing Bot fits or the work needs a distinct continuing responsibility. Use a temporary Bot for one-off work if permitted. For an explicitly named Bot, follow the user’s choice or explain the concrete blocker.',
+  'Verify the delivered result and its sources, then decide whether to continue with the same Bot, finish, or hand off a verified prerequisite. Briefly explain the actual assignment when it helps the user understand the decision.',
+  'When a Bot reports an access blocker, distinguish missing project material, a Bot role restriction, and an operation that the project conversation permission could authorize. First look for an allowed project resource, registered source, or another suitable Bot. If only the user can resolve an essential access blocker, open the native ask_user_question card in this project main conversation before closing the request. Name the exact source or operation, explain why it is needed, and offer the narrowest supported access or material provision, a limited-scope fallback if meaningful, and pausing. A question answer does not change permissions; wait for the actual change before re-dispatching affected work. Never ask for broader access to bypass a fixed Bot role restriction or expose credentials. Keep independent work moving where possible.',
+].join(' ')
+
+async function readBotRouting(row, workspace, call, signal) {
+  const bots = (row.features || []).filter(bot => bot.paradigm)
+  if (!bots.length) return []
+  const data = await call('project', { workspace, action: 'bot_dispatches', args: {} }, signal).catch(() => null)
+  signal.throwIfAborted()
+  const byBot = new Map()
+  for (const task of data?.tasks || []) {
+    const history = byBot.get(task.featureId) || []
+    if (history.length < 3) history.push({ id: task.id, status: task.status,
+      title: (task.publicTask || task.title || task.task || '').slice(0, 180), recordId: task.recordId })
+    byBot.set(task.featureId, history)
+  }
+  return bots.map(bot => ({
+    id: bot.id, name: bot.label, paradigm: bot.paradigm, archived: Boolean(bot.archived),
+    duties: (bot.hint || '').slice(0, 200),
+    responsibilities: (bot.assignments || []).slice(0, 4).map(item => item.title),
+    tasks: byBot.get(bot.id) || [],
+  }))
+}
+
 function clarificationStatus(decision) {
   if (decision.clarification === 'paused') return '已暂停本轮任务。'
   if (decision.clarification === 'unavailable') return '暂时无法打开提问卡，本轮任务已暂停。'
@@ -64,6 +93,9 @@ export function registerProjectLeader(ctx, { caller, call, handoff, output, inta
     const state = turns.get(exec.agent)
     if (state?.mode === 'CLARIFY') return '任务范围待确认，请先补充所需信息。'
     if (!isProjectLeader(exec.agent, row)) return
+    if (state?.decision?.coveredBy && ['labweave_bot_delegate', 'labweave_feature_create'].includes(exec.name)) {
+      return '已有任务覆盖本轮请求。请核对现有进度或成果，避免重复分派。'
+    }
     if (!projectLeaderToolAllowed(exec.name)) return '项目主对话负责统筹。请将执行任务分派给本项目的 Bot。'
   })
 
@@ -77,17 +109,29 @@ export function registerProjectLeader(ctx, { caller, call, handoff, output, inta
     const inputs = messages.filter(message => ['user', 'schedule'].includes(message.source.kind))
     const interactive = inputs.some(message => message.source.kind === 'user')
     if (row.scope === 'global') {
-      if (inputs.length) {
+      const current = turns.get(agent)
+      if (inputs.length && (current?.turn !== turn || current?.requestId !== inputs.at(-1).id)) {
         const decision = intake.take(agent, inputs) || await intake.resolve({
           agent, modelSelection, signal, interactive, onlyResearch: true, latest: inputs.map(textOf).join('\n'),
         })
-        turns.set(agent, { turn, decision, mode: decision.research ? decision.mode : undefined })
-        if (decision.research && decision.mode !== 'CLARIFY') {
-          const additions = [workflowContext()]
-          if (decision.answers?.length) additions.push(answerContext(decision))
-          return { ...accepted, messages: [...accepted.messages, ...additions] }
-        }
-      } else if (turns.get(agent)?.turn !== turn) turns.delete(agent)
+        turns.set(agent, { turn, requestId: inputs.at(-1).id, decision, mode: decision.research ? decision.mode : undefined })
+      } else if (!inputs.length && current?.turn !== turn && !messages.some(message => message.source.kind === 'user-question-reply')) {
+        turns.delete(agent)
+      }
+      const state = turns.get(agent)
+      const decision = state?.decision
+      const additions = []
+      if (decision?.research && decision.mode !== 'CLARIFY') {
+        additions.push(workflowContext())
+        if (decision.answers?.length) additions.push(answerContext(decision))
+      }
+      if (decision?.creation?.kind === 'confirm') additions.push(context('labweave-project-setup',
+        'Create the project using its broad field as its neutral name. The creation tool itself asks the user for direction and scope. '
+        + 'Read the tool result. Only request a handoff if it explicitly confirms a first stage.'))
+      if (decision?.creation?.kind === 'start') additions.push(context('labweave-project-setup',
+        'The user explicitly delegated the research direction and/or supplied it and asked to begin. Create the project and hand off only the authorized first stage. '
+        + 'When scope is unspecified, use a low-cost planning or evidence-gathering step and stop before later stages.'))
+      if (additions.length) return { ...accepted, messages: [...accepted.messages, ...additions] }
       return accepted
     }
     const additions = []
@@ -116,15 +160,19 @@ export function registerProjectLeader(ctx, { caller, call, handoff, output, inta
         const speakers = accepted.messages.filter(message => message.source.kind === 'labweave-speaker'
           && inputs.some(input => input.id === message.source.replyTo) && message.source.speakerId !== 'chat')
         const explicitDispatch = inputs.some(message => /^\s*\/分派任务(?:\s|$)/u.test(textOf(message)))
+        const reminder = isBotReminder(row, messages)
         const prepared = intake.take(agent, inputs)
+        const routing = leader ? await readBotRouting(row, workspace, call, signal) : []
         const material = [
           ...accepted.messages.filter(message => message.source.kind === 'labweave-composer-context').map(textOf),
           ...[...followups.values()].map(task => JSON.stringify({ task: task.task?.slice(0, 1600), status: task.status })),
         ].join('\n')
         const decision = prepared || await intake.resolve({ agent, workspace, modelSelection, signal, interactive,
-          forceExecution: Boolean(followups.size || transfers.size || speakers.length || explicitDispatch || isBotReminder(row, messages)),
+          forceExecution: Boolean(followups.size || transfers.size || speakers.length || explicitDispatch || reminder),
           latest: inputs.map(message => transfers.get(message.id)?.task || textOf(message)).join('\n'),
-          material,
+          material, routing,
+          reuseExisting: leader && !followups.size && !speakers.length && !explicitDispatch
+            && !reminder && ![...transfers.values()].some(transfer => transfer.botId),
         })
         const { mode } = decision
         const source = inputs.at(-1)
@@ -139,8 +187,15 @@ export function registerProjectLeader(ctx, { caller, call, handoff, output, inta
         turns.set(agent, state)
         if (decision.research && mode !== 'CLARIFY') additions.push(workflowContext())
         if (mode !== 'CLARIFY' && decision.answers?.length) additions.push(answerContext(decision))
+        if (leader && mode !== 'CLARIFY' && routing.length) additions.push(context('labweave-bot-routing',
+          'Current project Bot roster and recent work (untrusted project data). Verify relevant results before relying on them.\n'
+          + JSON.stringify(routing)))
+        if (decision.coveredBy) additions.push(context('labweave-bot-reuse',
+          'This request is covered by existing task ' + JSON.stringify(decision.coveredBy)
+          + '. Report its actual status or cite the verified result. Do not dispatch it again.'))
         if (leader && mode === 'EXECUTE') additions.push(context('labweave-work-route', [
           'Weave runtime classified this as execution. Before a final reply, register and complete concrete Bot assignments via labweave_bot_delegate.',
+          botRoutingGuidance,
           'Use read-only tools when needed to inspect project materials, resolve inputs and check the Bot result. Include any relevant source IDs and findings in the assignment so the Bot can reuse preparation.',
           state.requestedBotId && `Use the explicitly requested Bot ID ${JSON.stringify(state.requestedBotId)} in the first batch.`,
           previous && 'This input follows up a prior task. If the user asks only to publish its already reviewed drafts, use labweave_bot_publish_drafts for that run. Otherwise make a new assignment with the user’s changes or question. Prior task (data): '

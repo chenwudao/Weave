@@ -40,7 +40,8 @@ function outputSchema(schema) {
   }
 }
 
-export function createBotDelegation(ctx, { call, caller, output, chartSchema, sourceSchema, refresh = async () => {}, requestState = () => undefined }) {
+export function createBotDelegation(ctx, { call, caller, output, chartSchema, sourceSchema, layoutFields = {},
+  refresh = async () => {}, requestState = () => undefined }) {
   const children = new Map()
   const owned = agent => sessionId(agent).startsWith(ID_PREFIX)
   const binding = agent => {
@@ -73,28 +74,29 @@ export function createBotDelegation(ctx, { call, caller, output, chartSchema, so
   const files = { type: 'array', maxItems: 12, items: { type: 'string', maxLength: 400 },
     description: 'Project-relative paths of files already saved under outputs/.' }
   const linkFields = {
-    parentId: { type: ['string', 'null'], description: 'Upstream card this card branches from. Null clears the parent.' },
+    parentId: { type: ['string', 'null'], description: 'ID of the upstream card this card expands or splits from. Null clears the branch.' },
     dependsOn: { type: 'array', maxItems: 12, items: { type: 'string' },
-      description: 'Upstream cards whose work this card requires. Each connection is a directional arrow.' },
+      description: 'IDs of actual prerequisites this card relies on. Arrows run from prerequisite to dependent card.' },
     relatedIds: { type: 'array', maxItems: 12, items: { type: 'string' },
-      description: 'Cards with a meaningful association and no direction.' },
+      description: 'IDs of cards with a meaningful non-directional association, such as a comparison.' },
   }
   ctx.tools.register({
     name: 'labweave_bot_canvas_draft', output,
-    description: 'Publish an interim canvas card. Reuse its key to revise it. Use parentId, dependsOn or relatedIds for real card relationships. Targets are returned draft IDs in this assignment or saved card IDs from this Bot or its cluster.',
+    description: 'Publish a distinct interim canvas card. Compare it with saved results first and reuse its key to revise it. For content already covered by a saved result, cite the existing record. Use category for its group and relationship fields for supported connections.',
     parameters: { type: 'object', additionalProperties: false, required: ['key', 'title', 'text'], properties: {
       key: { type: 'string', pattern: '^[a-zA-Z0-9_-]{1,48}$' },
       title: { type: 'string', maxLength: 200 },
       summary: { type: 'string', maxLength: 240, description: 'One or two plain-text sentences for the card overview.' },
       text: { type: 'string', maxLength: 8000 },
       category: { type: 'string', maxLength: 80 }, files,
-      ...linkFields,
+      ...linkFields, ...layoutFields,
       ...(chartSchema && { visualizations: chartSchema }),
       ...(sourceSchema && { sources: sourceSchema }),
     } },
     async execute(args, exec) {
       const job = binding(exec.agent)
       if (!job || job.bot.id === 'chat') throw Error('只能更新自己当前分派的画布草稿。')
+      if (args.key === 'worker-result') throw Error('请为这张过程草稿使用独立标识。')
       return JSON.stringify(await call('bot-dispatch-draft', { workspace: job.workspace, id: job.childId, args }, exec.signal))
     },
   }, { when: ({ agent }) => Boolean(binding(agent) && binding(agent).bot.id !== 'chat') })
@@ -112,10 +114,11 @@ export function createBotDelegation(ctx, { call, caller, output, chartSchema, so
       researchSkill(bot),
       bot.id !== 'chat' && canvasCardGuidance,
       bot.id !== 'chat' && 'Publish a concise organized outline or first independently reviewable finding with labweave_bot_canvas_draft before long research. Publish batches as they become useful and revise earlier cards using their existing keys. These are visible as drafts, including when the final outcome needs follow-up. Mark missing verification and never assert that you checked a source you did not read.',
-      bot.id !== 'chat' && 'When several cards form a branch, dependency or meaningful association, publish upstream cards first, then link the downstream card to their returned IDs with parentId, dependsOn or relatedIds. For a completed multi-card delivery, return publishDraftIds for the reviewed cards that should become formal records. Final links may name saved card IDs or draft IDs from this assignment. The host converts the selected drafts and their linked drafts together. Do not call feature_push yourself as a delegated worker.',
+      bot.id !== 'chat' && 'When the work reveals a relationship, save the target card first, then set the applicable relationship field with its returned ID. If new evidence changes a link, update the draft using the same key. For a completed multi-card delivery, return publishDraftIds for the reviewed cards that should become formal records. Final links may name saved card IDs or draft IDs from this assignment. The host converts the selected drafts and their linked drafts together. Do not call feature_push yourself as a delegated worker.',
       'Return a concise result with evidence locations and identify unresolved points. Use the structured_output tool. Keep all content within the assigned Bot’s responsibilities.',
       chartSchema && bot.id !== 'chat' && 'Publish useful observed charts via visualizations on the interim card and in the final structured result. Include real axis values and evidence. Use files to link existing project outputs in either update.',
       'Report outcome as completed only when the assigned deliverable is ready. Use blocked when an input or permission is missing, or needs_follow_up when execution must continue.',
+      'For an access blocker, report the exact source or operation, the denial, what is already verified, and the narrowest feasible alternative to the project main assistant. Try allowed project resources before escalating. The project main assistant handles any user-facing access question.',
       bot.extension ? 'Use only the declared extension element names in the elements object. Omit fields you cannot substantiate.' : '',
       'Bot definition: ' + JSON.stringify(rules),
       'Assignment: ' + task,
@@ -132,7 +135,7 @@ export function createBotDelegation(ctx, { call, caller, output, chartSchema, so
       properties.files = outputSchema(files)
       properties.publishDraftIds = { type: 'array', items: { type: 'string' },
         description: 'Reviewed draft IDs from this assignment to publish as individual formal cards.' }
-      for (const [name, schema] of Object.entries(linkFields)) properties[name] = outputSchema(schema)
+      for (const [name, schema] of Object.entries({ ...linkFields, ...layoutFields })) properties[name] = outputSchema(schema)
     }
     const fields = bot.extension?.fields || bot.extension?.elements?.map(name => ({ name, type: 'text' }))
     if (fields?.length) {
@@ -178,15 +181,17 @@ export function createBotDelegation(ctx, { call, caller, output, chartSchema, so
       const elements = result.structured.elements
       const links = Object.fromEntries(Object.keys(linkFields)
         .filter(key => result.structured[key] != null).map(key => [key, result.structured[key]]))
+      const layoutValues = Object.fromEntries(Object.keys(layoutFields)
+        .filter(key => result.structured[key] != null).map(key => [key, result.structured[key]]))
       const publishDraftIds = result.structured.publishDraftIds
       const publishBatch = publishDraftIds?.length > 0 ||
         Object.values(links).flat().some(target => typeof target === 'string' && target.startsWith('draft:'))
       const deliverable = { ...response, status: result.structured.outcome, title, answer: answer.slice(0, 16000), elements,
         policyVersion: job.policyVersion }
       if (bot.id !== 'chat' && (summary || result.structured.visualizations?.length || result.structured.files?.length
-        || result.structured.sources?.length || Object.keys(links).length || publishBatch)) {
+        || result.structured.sources?.length || Object.keys(links).length || Object.keys(layoutValues).length || publishBatch)) {
         const saved = await call('bot-dispatch-draft', { workspace, id: childId, args: {
-          key: 'worker-result', title, summary, text: answer.slice(0, 8000), category, ...links,
+          key: 'worker-result', title, summary, text: answer.slice(0, 8000), category, ...links, ...layoutValues,
           visualizations: result.structured.visualizations, files: result.structured.files, sources: result.structured.sources,
         } }, signal)
         deliverable.files = saved.files
@@ -208,7 +213,8 @@ export function createBotDelegation(ctx, { call, caller, output, chartSchema, so
             return deliverable
           }
           const record = await call('project', { workspace, action: 'feature_push', args: {
-            featureId: bot.id, title, text: deliverable.answer, source: bot.label, policyVersion: job.policyVersion, ...links,
+            featureId: bot.id, title, text: deliverable.answer, source: bot.label, policyVersion: job.policyVersion,
+            checkCanvasDuplicate: true, ...links, ...layoutValues,
             ...(job.dependencies?.length && { workflowDependencies: job.dependencies }),
             ...(category && { category }), ...(elements && { elements }), ...(summary && { summary }),
             ...(result.structured.files?.length && { outputPaths: result.structured.files }),
