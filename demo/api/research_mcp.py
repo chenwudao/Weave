@@ -17,7 +17,7 @@ TOOLS = {
     "assistant_rename": ("Change the global assistant's display name when requested in the conversation.", {"name": {"type": "string"}}),
     "feature_labels": ("Read active feature IDs and their current display names for this conversation scope. A global conversation may optionally specify projectId.", {}),
     "feature_list": ("List active Feature Bots in the project. clusterParent identifies grouped members. Use includeArchived to find completed temporary Bots and their preserved results.", {"includeArchived":{"type":"boolean"}}),
-    "feature_create": ("Create a Bot with one paradigm and one compatible layout. Use goals: checklist/path/bus, notes: library/timeline, mindmap: graph/lineage/star/bus, ideas: branches/reasoning/star or engineering: sequence/matrix. Star emphasizes a central record; bus emphasizes sources feeding connected groups. For a project extension, use its ext_ ID and fixed layout from project_get_context. Global chat must specify the project explicitly.", {
+    "feature_create": ("Create a Bot with one paradigm and one compatible layout. Use goals: checklist/path/bus, notes: library/timeline, mindmap: graph/lineage/star/bus, ideas: branches/reasoning/star or engineering: sequence/matrix. Choose based on how the work is organized: a checklist or library groups items, a timeline or lineage uses dates, a path or sequence shows prerequisites, a graph or branches shows relationships, and a matrix supports independent comparisons. Star emphasizes a central record; bus emphasizes sources feeding connected groups. For a project extension, use its ext_ ID and fixed layout from project_get_context. Global chat must specify the project explicitly.", {
         "label":{"type":"string"}, "paradigm":{"type":"string"},
         "layout":{"type":"string","enum":list(dict.fromkeys(layout for layouts in features.BOT_LAYOUTS.values() for layout in layouts))},
         "hint":{"type":"string"}, "temporary":{"type":"boolean","description":"Use only for a one-time assignment without a suitable existing Bot. Successful archived deliveries retire it automatically."}}),
@@ -35,7 +35,7 @@ TOOLS = {
     "feature_layout": ("Change a project Bot's one saved layout after an explicit organization decision. Use a layout supported by the Bot's existing paradigm. Read feature_list first.", {
         "featureId": {"type": "string"}, "layout": {"type": "string"}}),
     "feature_push": (
-        "Save a record in a project Bot's assigned layout, or pass id to update one. Use parentId for a branch, dependsOn for true prerequisites, and relatedIds for non-directional associations. Targets must be existing cards in this Bot or its cluster. Set relationships only when supported by project records or user instructions. "
+        "Save a record in a project Bot's assigned layout, or pass id to update one. Use parentId for a branch, dependsOn for true prerequisites, and relatedIds for non-directional associations. Read eligible records first. Targets must be existing cards in this Bot or its cluster. Set relationships only when supported by project records or user instructions. Use category for grouping and sources for evidence, including project materials outside the canvas link scope. "
         "Give the canvas card a specific title and a short plain-text summary. Write text as a self-contained Markdown brief with the finding first, then short sections for relevant evidence, methods or next steps. Put links and figures with the finding they support. "
         "Decide based on the Bot's purpose and message intent "
         "whether to include a figure/diagram (imagePath in project folder, inline imageSvg diagram/chart, imageData, "
@@ -58,11 +58,14 @@ TOOLS = {
                         "items": {"type": "object", "additionalProperties": False, "properties": {
                             "title": {"type": "string"}, "recordId": {"type": "string"}, "url": {"type": "string"}}}},
             "kind": {"type": "string"},
-            "category": {"type": "string"}, "parentId": {"type": ["string", "null"]},
-            "relatedIds": {"type": "array", "items": {"type": "string"}, "maxItems": 100},
+            "category": {"type": "string", "description": "Content group in the assigned layout."},
+            "parentId": {"type": ["string", "null"], "description": "Upstream card this card branches from. Null clears the branch."},
+            "relatedIds": {"type": "array", "items": {"type": "string"}, "maxItems": 100,
+                           "description": "Non-directional associations, such as cards being compared. An empty array clears them."},
             "visualizations": {**CHART_SCHEMA, "description": "Charts of observed or sourced data. Use actual x and y values, and name axes with units. An empty array clears existing charts."},
             "due": {"type": "string"}, "done": {"type": "boolean"},
-            "dependsOn": {"type": "array", "items": {"type": "string"}},
+            "dependsOn": {"type": "array", "items": {"type": "string"},
+                          "description": "Actual prerequisite cards. An empty array clears prerequisites."},
             "eventDate": {"type": "string", "description": "Known publication or event date in YYYY-MM-DD."},
             **{name: {"type": "string", "description": label}
                for name, (label, _) in features.BOT_RECORD_TEXT_FIELDS.items()},

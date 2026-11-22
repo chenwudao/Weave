@@ -9,7 +9,7 @@ test('global handoffs obey the assistant preset and can only be sent once to a p
   const sessions = new Map(['main', 'bot', 'other'].map(id => [id, { header: { id, cwd: '/project' } }]))
   const workspace = { path: '/project', sessionIds: ['main', 'bot'] }
   const agent = { session: { header: { id: 'global-chat' } } }
-  let preset = 'read-only', route, guard
+  let preset = 'read-only', route, guard, turn
   const request = registerProjectHandoff({
     sessions, workspaceRegistry: { get: id => id === project.workspaceId ? workspace : null, archivedSessionIds: [] },
     tools: { register() {}, guard: fn => { guard = fn } },
@@ -18,6 +18,7 @@ test('global handoffs obey the assistant preset and can only be sent once to a p
     rows: () => [global, project],
     ownerRoute: (_name, _methods, handler) => { route = handler },
     call: async () => ({ preset }),
+    requestState: () => turn,
   })
   assert.match(guard({ agent, name: 'bash' }), /转交项目对话/)
   assert.equal(guard({ agent, name: 'labweave_project_handoff' }), undefined)
@@ -46,4 +47,16 @@ test('global handoffs obey the assistant preset and can only be sent once to a p
   preset = 'workspace-write'
   await assert.rejects(operate(downgraded, 'claim', { targetSessionId: 'main' }), /权限已变化/)
   assert.equal(downgraded.status, 'pending')
+
+  turn = { decision: { creation: { kind: 'confirm' } } }
+  const early = { projectId: project.scope, task: '启动实验', botId: 'engineer', key: 'early' }
+  await assert.rejects(request(agent, early), /确认研究方向和推进范围/)
+  turn.projectSetup = { projectId: project.scope, answer: { scope: '先建项目，暂不开始' } }
+  await assert.rejects(request(agent, early), /确认研究方向和推进范围/)
+  turn.projectSetup.answer.task = '只做一轮文献摸底'
+  await assert.rejects(request(agent, { ...early, projectId: 'other-project' }), /确认研究方向和推进范围/)
+  const confirmed = await request(agent, early)
+  assert.equal(confirmed.task, '只做一轮文献摸底')
+  assert.equal(confirmed.botId, undefined)
+  assert.equal(await request(agent, { ...early, key: 'retry' }), confirmed)
 })

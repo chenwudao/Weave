@@ -282,10 +282,42 @@ async function main() {
     if (phase === 'rightbar') {
       const first = await newProject('右侧栏验收')
       await checkProjectTools('右侧栏验收', first.scope)
+      const changesRoute = '**/api/labweave/project-file-changes'
+      await page.route(changesRoute, route => {
+        const { sessionId } = route.request().postDataJSON()
+        return route.fulfill({ json: sessionId === first.sessionId ? [
+          { id: 3, files: [{ path: 'outputs/report.md', action: 'changed' }, { path: 'outputs/old.md', action: 'removed' }] },
+          { id: 2, files: [{ path: 'outputs/report.md', action: 'changed' }] },
+          { id: 1, files: [{ path: 'outputs/report.md', action: 'added' }] },
+        ] : [] })
+      })
+      const changeCard = page.locator('.lw-project-file-changes')
+      await changeCard.getByText('2 个文件', { exact: true }).waitFor()
+      const dimensions = await changeCard.evaluate(card => {
+        const header = card.querySelector('.lw-file-change-header')
+        const tile = header.firstElementChild
+        return [getComputedStyle(header).height, getComputedStyle(tile).width, getComputedStyle(tile).height]
+      })
+      assert.deepEqual(dimensions, ['60px', '40px', '40px'])
+      const changedFiles = changeCard.getByRole('list', { name: '项目文件变更记录' })
+      assert.equal(await changedFiles.isVisible(), false)
+      await changeCard.getByText('项目文件变更', { exact: true }).click()
+      assert.equal(await changedFiles.getByRole('listitem').count(), 2)
+      assert.equal(await changedFiles.getByText('outputs/report.md', { exact: true }).count(), 1)
+      await changedFiles.getByText('修改', { exact: true }).waitFor()
+      await page.waitForFunction(() => {
+        const row = document.querySelector('.lw-project-file-changes li')
+        if (!row) return false
+        const bounds = row.getBoundingClientRect()
+        return bounds.height > 0 && row.contains(document.elementFromPoint(bounds.x + 25, bounds.y + bounds.height / 2))
+      })
+      await preview('12-associated-file-changes')
       const stored = await owner('project', { sessionId: first.sessionId, action: 'files/list' })
       assert.equal(stored.code, 200)
       assert.equal(stored.data.length, 3)
       const second = await newProject('文件隔离验收')
+      await changeCard.waitFor({ state: 'hidden' })
+      await page.unroute(changesRoute)
       assert.deepEqual((await owner('project', { sessionId: second.sessionId, action: 'files/list' })).data, [])
       assert.equal((await owner('project', {
         sessionId: second.sessionId, action: 'files/download', args: { id: stored.data[0].id },

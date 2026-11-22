@@ -34,6 +34,7 @@ test('one batch reserves isolated Bot workers and only archives completed assign
   const delegation = createBotDelegation(ctx, {
     caller: () => ({ row: { scope: 'project-a', features: bots }, workspace: { path: 'project-path' } }),
     output: {},
+    layoutFields: { eventDate: { type: 'string' }, relationLabel: { type: 'string' } },
     async call(route, data) {
       if (route === 'bot-dispatch-start' || route === 'bot-dispatch-update') {
         tracked.push({ route, ...data })
@@ -88,11 +89,18 @@ test('one batch reserves isolated Bot workers and only archives completed assign
   await draftTool.execute({ key: 'note', title: '准备', text: '待核验' }, { ...exec, agent: notes })
   assert.equal(tracked.find(item => item.route === 'bot-dispatch-draft').id, launches[0].spec.childId)
   launches[1].finish({ stopReason: 'error' })
-  launches[0].finish({ stopReason: 'completed', structured: { title: '来源', answer: '第 4 页', outcome: 'completed' } })
+  assert.equal(draftTool.parameters.properties.eventDate.type, 'string')
+  assert.equal(launches[0].spec.outputSchema.properties.relationLabel.type, 'string')
+  launches[0].finish({ stopReason: 'completed', structured: {
+    title: '来源', answer: '第 4 页', outcome: 'completed', eventDate: '2026-11-20', relationLabel: '支持',
+  } })
   const result = JSON.parse(await pending)
   assert.deepEqual(result.map(item => item.status), ['completed', 'incomplete'])
   assert.equal(result[0].recordId, 'saved-note')
   assert.deepEqual(archived.map(item => item.featureId), [bots[0].id])
+  const workerResult = tracked.find(item => item.route === 'bot-dispatch-draft' && item.args.key === 'worker-result')
+  assert.equal(workerResult.args.eventDate, '2026-11-20')
+  assert.equal(archived[0].relationLabel, '支持')
   assert.equal(tracked.find(item => item.status === 'completed').result.recordId, 'saved-note')
   assert.equal(tracked.filter(item => item.status === 'running').length, 2)
   assert.ok(guard({ agent: notes, name: 'labweave_memory_search' }))

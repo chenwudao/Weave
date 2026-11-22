@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import native_launcher as launcher
 import features
 import bot_activity
+import bot_dispatches
 import project_service as projects
 
 
@@ -48,6 +49,21 @@ def main():
             }, pid)
             notes = native_upload(pid, bot["id"])
             projects.call("feature_push", {"featureId": bot["id"], "id": notes["id"], "title": "数据附件"}, pid)
+            grouped = features.create_feature(pid, "草稿归组", paradigm="notes", layout="library")["feature"]["id"]
+            projects.call("feature_push", {
+                "featureId": grouped, "title": "正式综述", "text": "已核对的证据。", "category": "文献",
+            }, pid)
+            identity = "weave-bot-run-" + "a" * 32
+            bot_dispatches.start(pid, "fixture", [{"id": identity, "featureId": grouped, "task": "整理草稿"}])
+            first = bot_dispatches.publish_draft(pid, identity, {
+                "key": "first", "title": "文献初稿", "text": "初步发现。", "category": "文献",
+            })["id"]
+            bot_dispatches.publish_draft(pid, identity, {
+                "key": "second", "title": "文献补充", "text": "补充方法。", "category": "文献", "parentId": first,
+            })
+            bot_dispatches.publish_draft(pid, identity, {
+                "key": "data", "title": "数据初稿", "text": "初步数据。", "category": "数据",
+            })
             for layout, label in (("star", "方法关系图"), ("bus", "数据总线")):
                 feature = features.create_feature(pid, label, paradigm="mindmap")["feature"]["id"]
                 projects.call("feature_layout", {"featureId": feature, "layout": layout}, pid)

@@ -12,13 +12,24 @@ const managementTools = new Set([
   ].map(name => 'labweave_' + name),
 ])
 
-export function registerProjectHandoff(ctx, { caller, rows, ownerRoute, call, output }) {
+export function registerProjectHandoff(ctx, { caller, rows, ownerRoute, call, output, requestState = () => undefined }) {
   const requests = new Map()
   const fail = (message, status = 403) => Object.assign(Error(message), { status })
   const project = projectId => rows().find(row => row.scope === projectId && row.scope !== 'global')
 
   async function request(agent, { projectId, task, botId, key }, signal) {
     if (caller({ agent }).row.scope !== 'global') throw fail('转交由全局助手发起。')
+    const state = requestState(agent)
+    const creation = state?.decision?.creation?.kind
+    const setup = state?.projectSetup
+    if (setup || creation === 'confirm' || creation === 'named_only') {
+      if (setup?.projectId !== projectId || !setup?.answer?.task) {
+        throw fail('请在项目创建提问卡中确认研究方向和推进范围后再转交。', 409)
+      }
+      task = setup.answer.task
+      botId = undefined
+      key = 'project-setup:' + projectId
+    }
     const row = project(projectId)
     const clean = typeof task === 'string' ? task.trim() : ''
     if (!row || !clean || clean.length > 8000) throw fail('请明确选择项目并填写任务。', 400)

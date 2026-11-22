@@ -3,6 +3,7 @@ import base64
 from contextlib import closing
 import json
 from pathlib import Path
+import stat
 import sys
 from tempfile import TemporaryDirectory
 from threading import Thread
@@ -391,7 +392,10 @@ class NativeWorkspaceTests(unittest.TestCase):
         self.assertEqual(action("bot_dispatches", summary=True)["activeCount"], 2)
         dispatch("bot-dispatch-update", id=identity, status="running")
         dispatch("bot-dispatch-draft", id=identity, args={"key": "source", "title": "待核验", "text": "初稿"})
-        dispatch("bot-dispatch-draft", id=identity, args={"key": "source", "title": "正在整理", "text": "修订"})
+        dispatch("bot-dispatch-draft", id=identity, args={
+            "key": "source", "title": "正在整理", "text": "修订", "category": "出处核对",
+            "eventDate": "2026-11-20", "relationLabel": "支持", "relationStatus": "待核查",
+        })
         canvas = action("bot_canvas", featureId=member)
         self.assertEqual(canvas["active"], 1)
         self.assertEqual([draft["text"] for draft in canvas["drafts"]], ["修订"])
@@ -406,7 +410,11 @@ class NativeWorkspaceTests(unittest.TestCase):
         entry = action("feature_push", featureId=member, text="已核对第 4 页")
         dispatch("bot-dispatch-update", id=identity, status="completed",
                  result={"title": "来源核对", "answer": "已核对第 4 页", "recordId": entry["id"]})
-        self.assertFalse(action("bot_canvas", featureId=member)["drafts"])
+        [draft] = action("bot_canvas", featureId=member)["drafts"]
+        self.assertEqual((draft["text"], draft["category"], draft["taskRecordId"]),
+                         ("修订", "出处核对", entry["id"]))
+        self.assertEqual((draft["eventDate"], draft["relationLabel"], draft["relationStatus"]),
+                         ("2026-11-20", "支持", "待核查"))
         with self.assertRaises(workspace.WorkspaceError):
             dispatch("bot-dispatch-draft", id=identity, args={"key": "source", "title": "重试", "text": "已结束"})
         dispatch("bot-dispatch-update", id=identity, status="running")
@@ -424,6 +432,22 @@ class NativeWorkspaceTests(unittest.TestCase):
                          ("文献核对", "论文组", "main-chat"))
         with self.assertRaises(workspace.WorkspaceError):
             web.dispatch("project", {"workspace": self.records[b], "action": "bot_dispatch_detail", "args": {"id": identity}})
+        followup = "weave-bot-run-" + "d" * 32
+        dispatch("project-flow", action="input", sessionId="main-chat", messageId="followup-1",
+                 text="继续核对附录", followUpOf=identity)
+        dispatch("bot-dispatch-start", parentSessionId="main-chat", jobs=[
+            {"id": followup, "featureId": member, "task": "核对附录", "requestId": "followup-1"},
+        ])
+        draft = dispatch("bot-dispatch-draft", id=followup, args={"key": "appendix", "title": "附录", "text": "已找到附录"})
+        canvas = {card["id"]: card for card in action("bot_canvas", featureId=target)["drafts"]}
+        self.assertEqual(canvas[draft["id"]]["previousTaskRecordId"], entry["id"])
+        self.assertEqual(canvas[draft["id"]]["taskRecordId"], "")
+        followup_entry = action("feature_push", featureId=member, text="附录已核对")
+        dispatch("bot-dispatch-update", id=followup, status="completed",
+                 result={"answer": "附录已核对", "recordId": followup_entry["id"]})
+        canvas = {card["id"]: card for card in action("bot_canvas", featureId=target)["drafts"]}
+        self.assertEqual(canvas[draft["id"]]["previousTaskRecordId"], entry["id"])
+        self.assertEqual(canvas[draft["id"]]["taskRecordId"], followup_entry["id"])
         bot_dispatches.recover()
         self.assertEqual(action("bot_dispatches", summary=True)["activeCount"], 0)
         self.assertEqual(action("bot_dispatch_detail", id=stalled)["status"], "interrupted")
@@ -478,6 +502,60 @@ class NativeWorkspaceTests(unittest.TestCase):
             stream.write("1200,0.5\n")
         self.assertEqual(latest()["visualizations"][0]["points"][-1], {"x": 1200, "y": 0.5})
 
+    def test_engineering_canvas_detects_drafts_that_repeat_saved_results(self):
+        project, _ = self.projects
+        bot = features.create_feature(project, "实验台", paradigm="engineering")["feature"]["id"]
+        identity = "weave-bot-run-" + "e" * 32
+        parent = "main-chat"
+
+        def dispatch(route, **args):
+            return web.dispatch(route, {"workspace": self.records[project], **args})
+
+        def action(name, **args):
+            return dispatch("project", action=name, args={"featureId": bot, **args})
+
+        dispatch("bot-dispatch-start", parentSessionId=parent,
+                 jobs=[{"id": identity, "featureId": bot, "task": "核对基线结果"}])
+
+        def draft(key, title, text, **links):
+            return dispatch("bot-dispatch-draft", id=identity,
+                            args={"key": key, "title": title, "text": text, **links})["id"]
+
+        result_text = "基线损失为 0.5。\n已核对同一数据版本。"
+        repeated = draft("baseline", "基线结果", result_text.replace("\n", "\r\n"))
+        distinct = draft("check", "基线结果", "正在核对另一批数据的预处理条件。", dependsOn=[repeated])
+        saved = action("feature_push", title="基线结果", text=result_text)
+        with self.assertRaises(workspace.WorkspaceError) as conflict:
+            draft("copy", "基线结果", result_text)
+        self.assertEqual(conflict.exception.status, 409)
+        with self.assertRaises(workspace.WorkspaceError):
+            action("feature_push", title="基线结果", text=result_text, checkCanvasDuplicate=True)
+
+        draft("worker-result", "训练交付", "说明基线复现及数据分批情况。")
+        with self.assertRaises(workspace.WorkspaceError) as conflict:
+            dispatch("bot-dispatch-promote", id=identity, parentSessionId=parent,
+                     publishDraftIds=[distinct], final={"title": "训练交付"})
+        self.assertEqual(conflict.exception.status, 409)
+        self.assertEqual([item["id"] for item in action("view")["rails"][bot]], [saved["id"]])
+
+        verified_text = "独立复现的两次运行已登记。"
+        verified = draft("verified", "基线复现", verified_text, relatedIds=[saved["id"]])
+        with self.assertRaises(workspace.WorkspaceError) as conflict:
+            dispatch("bot-dispatch-promote", id=identity, parentSessionId=parent,
+                     publishDraftIds=[verified], final={"title": "训练交付", "answer": verified_text})
+        self.assertEqual(conflict.exception.status, 409)
+        published = dispatch("bot-dispatch-promote", id=identity, parentSessionId=parent,
+                             publishDraftIds=[verified], final={"title": "训练交付"})
+        canvas = action("bot_canvas")
+        cards = {item["id"]: item for item in canvas["drafts"]}
+        self.assertEqual(cards[repeated]["duplicateOf"], saved["id"])
+        self.assertNotIn("duplicateOf", cards[distinct])
+        self.assertEqual(cards[distinct]["dependsOn"], [repeated])
+        self.assertEqual(cards[verified]["recordId"], published["cardIds"][verified])
+        self.assertTrue({repeated, distinct, verified} <= {item["id"] for item in canvas["messages"]})
+        self.assertEqual(dispatch("bot-dispatch-promote", id=identity, parentSessionId=parent,
+                                  publishDraftIds=[verified]), published)
+
     def test_canvas_links_can_cross_cluster_members_only(self):
         project, _ = self.projects
         record = self.records[project]
@@ -494,6 +572,24 @@ class NativeWorkspaceTests(unittest.TestCase):
         action("bot_cluster", targetId=root, memberIds=[member])
         downstream = action("feature_push", featureId=member, id=b, parentId=a, dependsOn=[a], relatedIds=[a])
         self.assertEqual((downstream["parentId"], downstream["dependsOn"], downstream["relatedIds"]), (a, [a], [a]))
+        action("feature_push", featureId=member, id=b,
+               linkNote={"kind": "dependency", "target": a, "text": "要先核对原始资料。"})
+        action("feature_push", featureId=root, id=a,
+               linkNote={"kind": "related", "target": b, "text": "两个记录使用同一批数据。"})
+        rails = action("view")["rails"]
+        self.assertEqual(rails[member][0]["linkNotes"]["dependency"], {a: "要先核对原始资料。"})
+        owner, target = sorted((a, b))
+        owner_rail = root if owner == a else member
+        self.assertEqual(rails[owner_rail][0]["linkNotes"]["related"], {target: "两个记录使用同一批数据。"})
+        action("feature_push", featureId=member, id=b,
+               linkNote={"kind": "related", "target": a, "text": "已核对同一批数据。"})
+        self.assertEqual(action("view")["rails"][owner_rail][0]["linkNotes"]["related"],
+                         {target: "已核对同一批数据。"})
+        with self.assertRaises(workspace.WorkspaceError):
+            action("feature_push", featureId=member, id=b,
+                   linkNote={"kind": "dependency", "target": c, "text": "范围外"})
+        action("feature_push", featureId=member, id=b, relatedIds=[])
+        self.assertNotIn("related", action("view")["rails"][owner_rail][0].get("linkNotes", {}))
         with self.assertRaises(workspace.WorkspaceError):
             action("feature_push", featureId=root, id=a, dependsOn=[b])
         with self.assertRaises(workspace.WorkspaceError):
@@ -503,6 +599,7 @@ class NativeWorkspaceTests(unittest.TestCase):
         self.assertNotIn("parentId", child)
         self.assertEqual(child["dependsOn"], [])
         self.assertEqual(child["relatedIds"], [])
+        self.assertNotIn("linkNotes", child)
 
     def test_bot_cluster_and_retirement_keep_original_records(self):
         a, b = self.projects
@@ -566,6 +663,9 @@ class NativeWorkspaceTests(unittest.TestCase):
             generated = root / relative
             generated.parent.mkdir(parents=True)
             generated.write_bytes(b"generated")
+        if sys.platform == "win32":
+            (root / "outputs/report.docx").chmod(stat.S_IREAD)
+            (root / "outputs").chmod(stat.S_IREAD)
         (other / "outputs").mkdir()
         (other / "outputs/report.docx").write_bytes(b"other project")
         project_plugins.create(a, {"name": "Private", "prompt": "Only A"})

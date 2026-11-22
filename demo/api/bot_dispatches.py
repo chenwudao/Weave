@@ -8,7 +8,6 @@ from uuid import NAMESPACE_URL, uuid5
 import features
 import project_flow
 import project_service
-import visualizations
 import workspace
 
 
@@ -201,6 +200,14 @@ def _draft_links(project, feature, identity, card, entries, args):
     return links
 
 
+def _canvas_records(db, project, rails):
+    slots = ",".join("?" for _ in rails)
+    return [json.loads(body) for body, in db.execute(
+        f"SELECT body FROM entities WHERE project=? AND kind IN ({slots}) ORDER BY kind,position",
+        (project, *rails),
+    )]
+
+
 def publish_draft(project, identity, args):
     if not isinstance(identity, str) or not IDENTITY.fullmatch(identity) or not isinstance(args, dict):
         raise workspace.WorkspaceError(400, "无效的 Bot 分派草稿。")
@@ -211,10 +218,11 @@ def publish_draft(project, identity, args):
     if not isinstance(card, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,48}", card) or not title or not body:
         raise workspace.WorkspaceError(400, "请填写草稿的标识、标题和内容。")
     media = {
-        "summary": workspace.text(args.get("summary"), 240),
-        "visualizations": visualizations.validate(args["visualizations"]) if "visualizations" in args else [],
+        "summary": "",
+        "visualizations": [],
         "outputFiles": project_service.output_references(project, args["files"]) if "files" in args else [],
     }
+    project_service._bot_record_fields(args, media)
     if "sources" in args:
         media["sources"] = project_service.record_sources(project, args["sources"])
     stamp = _time()
@@ -231,6 +239,11 @@ def publish_draft(project, identity, args):
                 WHERE d.project=? AND d.dispatch=?""", (project, identity))}
         if len(entries) >= 12 and card not in entries and card != "worker-result":
             raise workspace.WorkspaceError(400, "请更新本次任务已有的草稿。")
+        if card != "worker-result":
+            rails = project_service._canvas_link_rails(project, job[1])
+            project_service.check_canvas_card_duplicate(
+                {"title": title, "text": body}, _canvas_records(db, project, rails),
+            )
         media.update(_draft_links(project, job[1], identity, card, entries, args))
         encoded = json.dumps(media, ensure_ascii=False)
         result = {"id": f"draft:{identity}:{card}", "files": media["outputFiles"]}
@@ -335,6 +348,7 @@ def promote_drafts(project, identity, parent, selection=None, *, final=None):
         records = state["rails"].setdefault(feature, [])
         if any(entry["id"] in mapping.values() for entry in records):
             raise workspace.WorkspaceError(409, "这次分派已发布过正式卡片。")
+        existing = project_service._canvas_link_records(state, link_rails)
         new_entries = []
         for key in ordered:
             entry = {**chosen[key], "id": mapping[key], "source": bot,
@@ -348,8 +362,10 @@ def promote_drafts(project, identity, parent, selection=None, *, final=None):
                 entry["sources"] = project_service.record_sources(project, entry["sources"], state)
             if key == summary_id and (final or {}).get("elements"):
                 project_service._entry_elements({"elements": final["elements"]}, entry, bot_config.get("extension"), records)
+            project_service.check_canvas_card_duplicate(entry, existing)
+            project_service.check_canvas_card_duplicate(entry, new_entries, same_task=True)
             new_entries.append(entry)
-        candidates = [*project_service._canvas_link_records(state, link_rails), *new_entries]
+        candidates = [*existing, *new_entries]
         for entry in new_entries:
             fields = set(entry).intersection(CARD_LINK_FIELDS)
             project_service._check_canvas_direction(entry, state, feature, candidates, False, edited=fields)
@@ -420,20 +436,20 @@ def canvas(project, feature):
             FROM labweave_bot_dispatches WHERE project=? AND feature IN ({slots}) AND record_id=''
             ORDER BY (status IN ('queued','running')) DESC,updated_at DESC LIMIT 30""",
                                  (project, *names)).fetchall()
-        linked_jobs = db.execute(f"""SELECT {columns} FROM labweave_bot_dispatches AS job
+        delivered_jobs = db.execute(f"""SELECT {columns} FROM labweave_bot_dispatches AS job
             WHERE project=? AND feature IN ({slots}) AND record_id<>'' AND EXISTS (
-                SELECT 1 FROM labweave_bot_draft_media AS draft WHERE draft.project=job.project AND draft.dispatch=job.id
-                AND draft.card<>'worker-result'
-                AND (json_extract(draft.media,'$.parentId') IS NOT NULL OR
-                     json_array_length(draft.media,'$.dependsOn')>0 OR json_array_length(draft.media,'$.relatedIds')>0))
-            ORDER BY updated_at DESC LIMIT 30""", (project, *names)).fetchall()
-        canvas_jobs += linked_jobs
+                SELECT 1 FROM labweave_bot_canvas_drafts AS draft
+                WHERE draft.project=job.project AND draft.dispatch=job.id AND draft.card<>'worker-result')
+            ORDER BY updated_at DESC""", (project, *names)).fetchall()
+        canvas_jobs += delivered_jobs
         own_jobs = db.execute(f"""SELECT {columns} FROM labweave_bot_dispatches
             WHERE project=? AND feature=?
             ORDER BY (status IN ('queued','running')) DESC,updated_at DESC LIMIT 30""",
                               (project, feature)).fetchall()
-        published = dict(db.execute("""SELECT json_extract(body,'$.publishedDraftId'),id FROM entities
-            WHERE project=? AND json_type(body,'$.publishedDraftId')='text'""", (project,)))
+        saved = _canvas_records(db, project, names)
+        published = {entry["publishedDraftId"]: entry["id"] for entry in saved if entry.get("publishedDraftId")}
+        saved_content = {entry["id"]: project_service.canvas_card_content(entry) for entry in saved}
+        matching = {content: entry_id for entry_id, content in saved_content.items() if content[1]}
         canvas_ids = {job[0] for job in canvas_jobs}
         own_ids = {job[0] for job in own_jobs}
         jobs = {job[0]: job for job in [*canvas_jobs, *own_jobs]}
@@ -468,12 +484,15 @@ def canvas(project, feature):
                       **json.loads(media or "{}"), "canvasRail": bot,
                       **({"canvasGroup": names[bot]} if len(names) > 1 else {})}
                      for card, label, body, category, updated, media in drafts]
+            origin = db.execute("""SELECT link.request_id,flow.kind,flow.payload,link.dependencies,previous.record_id
+                FROM labweave_bot_dispatch_links AS link
+                LEFT JOIN labweave_project_flow AS flow ON flow.project=link.project
+                AND flow.event_key='input:'||?||':'||link.request_id
+                LEFT JOIN labweave_bot_dispatches AS previous ON previous.project=link.project AND flow.kind='input'
+                AND previous.id=json_extract(flow.payload,'$.followUpOf') AND previous.feature=?
+                AND previous.parent_session=?
+                WHERE link.project=? AND link.dispatch=?""", (parent, bot, parent, project, identity)).fetchone()
             if identity in own_ids:
-                origin = db.execute("""SELECT link.request_id,flow.kind,flow.payload,link.dependencies
-                    FROM labweave_bot_dispatch_links AS link
-                    LEFT JOIN labweave_project_flow AS flow ON flow.project=link.project
-                    AND flow.event_key='input:'||?||':'||link.request_id
-                    WHERE link.project=? AND link.dispatch=?""", (parent, project, identity)).fetchone()
                 source = json.loads(origin[2]) if origin and origin[1] == "input" else {}
                 acceptance = queued_payload.get("acceptance", "")
                 dependency_titles = []
@@ -503,25 +522,22 @@ def canvas(project, feature):
                 continue
             if record:
                 cards = [card for card in cards if card["id"] != f"draft:{identity}:worker-result"]
-                endpoints = set()
-                for card in cards:
-                    targets = [card.get("parentId"), *card.get("dependsOn", []), *card.get("relatedIds", [])]
-                    if any(targets):
-                        endpoints.update([card["id"], *targets])
-                cards = [card for card in cards if card["id"] in endpoints and card["id"] not in published]
-                for card in cards:
-                    if card.get("parentId") in published:
-                        card["parentId"] = published[card["parentId"]]
-                    for field in ("dependsOn", "relatedIds"):
-                        if field in card:
-                            card[field] = [published.get(target, target) for target in card[field]]
             elif not drafts:
                 cards.append({**final, "id": f"draft:{identity}:overview", "text": answer or public_task})
             elif answer and status in ("needs_follow_up", "completed") and all(card["text"] != answer for card in cards):
                 cards.insert(0, final)
-            if len(names) > 1:
-                for card in cards:
+            for card in cards:
+                if len(names) > 1:
                     card["canvasGroup"] = names[bot]
+                card["recordId"] = published.get(card["id"], "")
+                if not card["recordId"]:
+                    content = project_service.canvas_card_content(card)
+                    if content[1] and content[1] == saved_content.get(record, ("", ""))[1]:
+                        card["duplicateOf"] = record
+                    elif content in matching:
+                        card["duplicateOf"] = matching[content]
+                card["taskRecordId"] = record
+                card["previousTaskRecordId"] = (origin[4] or "") if origin else ""
             items.extend(cards)
     return {"active": sum(job[2] in ("queued", "running") for job in canvas_jobs), "drafts": items, "messages": messages}
 
