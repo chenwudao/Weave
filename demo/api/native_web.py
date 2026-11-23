@@ -268,6 +268,8 @@ def project_action(scope, data):
         return projects.clone({**args, "projectId": scope})
     if action == "files/list":
         return projects.stored_files(scope)
+    if action == "files/changes":
+        return project_flow.file_change_page(scope, args.get("before"))
     if action == "files/reference":
         page = args.get("page", 1)
         if type(page) is not int or page < 1:
