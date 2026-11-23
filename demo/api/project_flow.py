@@ -89,12 +89,25 @@ def record_file_changes(project, data):
     return {"ok": True}
 
 
-def file_changes(project, session):
+def _file_changes(project, session=None, *, before=None, limit=30):
     with closing(workspace.database()) as db:
         ensure(db)
         rows = db.execute("""SELECT seq,payload FROM labweave_project_flow WHERE project=? AND kind='file-change'
-            AND json_extract(payload,'$.sessionId')=? ORDER BY seq DESC LIMIT 30""", (project, session)).fetchall()
+            AND (? IS NULL OR json_extract(payload,'$.sessionId')=?)
+            AND (? IS NULL OR seq<?) ORDER BY seq DESC LIMIT ?""",
+                          (project, session, session, before, before, limit)).fetchall()
     return [{"id": seq, **json.loads(payload)} for seq, payload in rows]
+
+
+def file_changes(project, session):
+    return _file_changes(project, session) if session else []
+
+
+def file_change_page(project, before=None):
+    if before is not None and (type(before) is not int or not 0 < before <= 2**63 - 1):
+        raise workspace.WorkspaceError(400, "无效的文件变更历史位置。")
+    events = _file_changes(project, before=before, limit=31)
+    return {"events": events[:30], "nextBefore": events[29]["id"] if len(events) > 30 else None}
 
 
 def changed_prerequisites(db, project, task_ids):

@@ -741,6 +741,32 @@ class NativeWorkspaceTests(unittest.TestCase):
             web.dispatch("project", {"workspace": self.records[b], **request})
         self.assertEqual(error.exception.status, 404)
 
+    def test_project_file_change_history_pages_across_sessions_in_one_project(self):
+        a, b = self.projects
+        for index in range(31):
+            web.project_flow.record_file_changes(a, {
+                "sessionId": "session-" + str(index % 2), "messageId": str(index),
+                "files": [{"path": f"outputs/{index}.txt", "action": "removed" if index == 30 else "added"}],
+            })
+        web.project_flow.record_file_changes(b, {"sessionId": "session-0", "messageId": "other",
+            "files": [{"path": "outputs/other.txt", "action": "changed"}]})
+
+        def page(project, **args):
+            return web.dispatch("project", {"workspace": self.records[project], "action": "files/changes", "args": args})
+
+        first = page(a)
+        self.assertEqual([event["files"][0]["path"] for event in first["events"]],
+                         [f"outputs/{index}.txt" for index in range(30, 0, -1)])
+        self.assertEqual(first["events"][0]["files"][0]["action"], "removed")
+        self.assertEqual({event["sessionId"] for event in first["events"]}, {"session-0", "session-1"})
+        second = page(a, before=first["nextBefore"])
+        self.assertEqual(second["events"][0]["files"][0]["path"], "outputs/0.txt")
+        self.assertIsNone(second["nextBefore"])
+        self.assertEqual(page(b)["events"][0]["files"][0]["path"], "outputs/other.txt")
+        self.assertEqual(len(web.project_flow.file_changes(a, "session-0")), 16)
+        with self.assertRaises(workspace.WorkspaceError):
+            page(a, before="30")
+
     def test_offline_backup_restores_business_and_session_as_a_pair(self):
         home = self.root / "profile"
         (home / "sessions").mkdir(parents=True)

@@ -1030,7 +1030,10 @@ window.__ModuleLoader__.load({
       .lw-hero-ctx-btn{border:0;background:transparent;padding:2px 6px;border-radius:6px;font:inherit;font-size:var(--lw-ui-sm);line-height:1.45;color:var(--dsw-alias-label-secondary);cursor:pointer;text-align:start;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .lw-hero-ctx-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
       .lw-project-file-changes{display:flex;flex:none;flex-direction:column;box-sizing:border-box;width:min(100%,740px);min-width:0;margin:4px auto 0;overflow:hidden;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg,12px);background:var(--dsw-alias-bg-layer-1,Canvas);color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family,inherit)}
-      .lw-file-change-header{display:flex;flex:none;align-items:center;gap:10px;box-sizing:border-box;height:60px;padding:8px 10px;border:0;background:var(--dsw-alias-card-fill,var(--dsw-alias-bg-layer-1));color:inherit;font:inherit;text-align:start;cursor:pointer}
+      .lw-file-change-summary{display:flex;align-items:center;background:var(--dsw-alias-card-fill,var(--dsw-alias-bg-layer-1))}
+      .lw-file-change-header{display:flex;flex:1;min-width:0;align-items:center;gap:10px;box-sizing:border-box;height:60px;padding:8px 10px;border:0;background:transparent;color:inherit;font:inherit;text-align:start;cursor:pointer}
+      .lw-file-change-dismiss{display:grid;place-items:center;flex:none;width:36px;height:36px;margin:0 6px 0 0;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
+      .lw-file-change-dismiss:hover{background:var(--dsw-alias-interactive-bg-hover)}
       .lw-file-change-header:is(:hover,:focus-visible){background:var(--dsw-alias-card-fill-hover,var(--dsw-alias-interactive-bg-hover))}
       .lw-project-file-changes button:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}
       .lw-file-change-tile{display:grid;flex:none;place-items:center;box-sizing:border-box;width:40px;height:40px;border:.5px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-card-tile-fill)}
@@ -1047,7 +1050,10 @@ window.__ModuleLoader__.load({
       .lw-file-change-row [data-action]{flex:none;font-size:11px;white-space:nowrap}
       .lw-file-change-row [data-action=added]{color:var(--dsw-alias-state-success-primary)}
       .lw-file-change-row [data-action=removed]{color:var(--dsw-alias-state-error-primary)}
-      @media(pointer:coarse){button.lw-file-change-row{min-height:44px}}
+      .lw-file-change-history ul{list-style:none;margin:0;padding:0}
+      .lw-file-change-history .lw-file-change-row{padding-inline:0}
+      .lw-file-change-history [data-path]{white-space:normal;overflow-wrap:anywhere}
+      @media(pointer:coarse){button.lw-file-change-row{min-height:44px}.lw-file-change-dismiss{width:44px;height:44px}}
       [data-conversation-content]{container-type:inline-size;container-name:lwchat}
       [data-content-phase="hero"] [class*="heroWorkspaceRow"]>:first-child{display:none}
       [data-content-phase="hero"] [data-composer-card]:has([data-composer-input][aria-haspopup="menu"]){display:none}
@@ -6252,10 +6258,21 @@ window.__ModuleLoader__.load({
           h(ProjectHandoffs, { key: 'handoffs:' + sessionId, sessionId }))
       })
       const emptyFileActivity = { subscribe: () => () => {}, getSnapshot: () => null }
+      const fileChangeLabels = { added: '新增', changed: '修改', removed: '删除' }
+      function fileChangeRow(file, onReview) {
+        return h('li', { key: file.path }, h(onReview ? 'button' : 'div', {
+          className: 'lw-file-change-row', ...(onReview && { type: 'button', onClick: onReview }),
+        }, h('span', { 'data-path': '', title: file.path }, file.path),
+        h('span', { 'data-action': file.action }, LW(fileChangeLabels[file.action]))))
+      }
       function ProjectConversationFiles({ sessionId, binding }) {
         const [changes, setChanges] = React.useState([])
         const [nativeChanges, setNativeChanges] = React.useState(() => new Map())
         const [expanded, setExpanded] = React.useState(false)
+        const dismissalKey = 'labweave:file-change-dismissed:' + sessionId
+        const [dismissedThrough, setDismissedThrough] = React.useState(() => {
+          try { return Number(sessionStorage.getItem(dismissalKey)) || 0 } catch { return 0 }
+        })
         const listId = React.useId()
         const showNative = useStore(ctx.configForms?.developerTools?.enabled || emptyFileActivity) === true
         const history = useStore(binding?.eventSource || emptyFileActivity)
@@ -6311,9 +6328,9 @@ window.__ModuleLoader__.load({
           return () => { controller.abort(); clearInterval(timer) }
         }, [sessionId])
         const scope = '[data-conversation-session="' + CSS.escape(sessionId) + '"]'
-        const labels = { added: LW('新增'), changed: LW('修改'), removed: LW('删除') }
         const latest = new Map()
         for (const change of changes) {
+          if (change.id <= dismissedThrough) continue
           for (const file of change.files) {
             if (latest.has(file.path)) continue
             const native = nativeChanges.get(file.path)
@@ -6322,27 +6339,31 @@ window.__ModuleLoader__.load({
           }
         }
         const remaining = [...latest.values()].filter(file => !(binding && showNative && file.review))
+        function dismiss() {
+          const through = Math.max(dismissedThrough, ...changes.map(change => change.id))
+          setDismissedThrough(through)
+          setExpanded(false)
+          try { sessionStorage.setItem(dismissalKey, String(through)) } catch {}
+        }
         return h(React.Fragment, null,
           binding && !approvals.size && h('style', null,
             scope + ' [data-chat-call-id]:has(:is([data-tool^="labweave_"],[data-tool^="mcp__labweave__"])){display:none!important}'),
           remaining.length > 0 && h('section', { className: 'lw-project-file-changes' },
-            h('button', { type: 'button', className: 'lw-file-change-header', 'aria-expanded': expanded,
+            h('div', { className: 'lw-file-change-summary' }, h('button', { type: 'button', className: 'lw-file-change-header', 'aria-expanded': expanded,
               'aria-controls': listId, onClick: () => setExpanded(open => !open) },
               h('span', { className: 'lw-file-change-tile' }, h(Icon, { name: 'file' })),
               h('span', { className: 'lw-file-change-headline' },
                 h('span', null, LW('项目文件变更')),
                 h('span', { className: 'lw-file-change-count' }, remaining.length + LW(' 个文件'))),
               h('span', { className: 'lw-file-change-chevron' }, h(Icon, { name: 'right' }))),
+              h('button', { type: 'button', className: 'lw-file-change-dismiss', onClick: dismiss,
+                'aria-label': LW('关闭项目文件变更提示'), title: LW('关闭提示') }, h(Icon, { name: 'close' }))),
             h('ul', { id: listId, hidden: !expanded, 'aria-label': LW('项目文件变更记录') },
-              remaining.map(file => h('li', { key: file.path }, h(binding && file.review ? 'button' : 'div', {
-                className: 'lw-file-change-row',
-                ...(binding && file.review && { type: 'button', onClick: () => {
+              remaining.map(file => fileChangeRow(file, binding && file.review ? () => {
                   const { seq, turn, index } = file.review
                   ctx.sidebarRight.openResource('dsh-resource://changes-review/session/' +
                     encodeURIComponent(sessionId) + '/' + seq + '/' + turn, { params: { index } })
-                } }),
-              }, h('span', { 'data-path': '', title: file.path }, file.path),
-              h('span', { 'data-action': file.action }, labels[file.action])))))))
+              } : undefined)))))
       }
       slot('conversation.input.dock', { id: 'labweave-project-file-changes', order: 12, inject: sessionId => ({ sessionId }) }, ({ sessionId }) => {
         const workspace = useStore(ctx.workspaces.list).items.find(w => w.sessionIds.includes(sessionId))
@@ -7291,6 +7312,14 @@ window.__ModuleLoader__.load({
           description: '按时间查看和下载本项目对话生成的文件。',
         },
         {
+          id: 'labweave-project-file-change-history',
+          kind: 'labweave-file-changes',
+          title: '项目文件变更',
+          order: 8,
+          guideIcon: guideGlyph(paths.file),
+          description: '按时间查看本项目记录的文件新增、修改和删除。',
+        },
+        {
           id: 'labweave-project-git',
           kind: 'labweave-git',
           title: 'Git',
@@ -7299,6 +7328,38 @@ window.__ModuleLoader__.load({
           description: '查看本项目仓库和工作树的状态、变更和最近提交。',
         },
       ]
+      function ProjectFileChangeHistory({ row }) {
+        const { value, error } = useProject(row.workspaceId, 'files/changes', '', 5000)
+        const sessions = useStore(ctx.sessions.list)
+        const [older, setOlder] = React.useState([])
+        const [olderBefore, setOlderBefore] = React.useState(undefined)
+        const [loading, setLoading] = React.useState(false)
+        const [olderError, setOlderError] = React.useState('')
+        const before = olderBefore === undefined ? value?.nextBefore : olderBefore
+        const events = [...new Map([...(value?.events || []), ...older].map(event => [event.id, event])).values()]
+          .sort((a, b) => b.id - a.id)
+        async function loadOlder() {
+          setLoading(true)
+          setOlderError('')
+          try {
+            const page = await project(row.workspaceId, 'files/changes', { before })
+            setOlder(current => [...current, ...page.events])
+            setOlderBefore(page.nextBefore)
+          } catch (failure) { setOlderError(failure.message) }
+          finally { setLoading(false) }
+        }
+        return h('section', { className: 'lw-rpane lw-file-change-history', 'aria-label': row.name + LW(' 项目文件变更') },
+          error && h('p', { className: 'lw-hint', role: 'alert' }, error),
+          !value && !error && h('p', { className: 'lw-hint', role: 'status' }, LW('正在读取项目文件变更…')),
+          value && !events.length && h('p', { className: 'lw-hint', role: 'status' }, LW('本项目暂无文件变更记录。')),
+          events.map(event => h('section', { key: event.id, className: 'lw-rpane-card' },
+            h('h3', null, h('time', { dateTime: event.createdAt }, fmtDateTime(event.createdAt))),
+            sessions.byId[event.sessionId]?.title && h('span', { className: 'lw-hist-muted' }, sessions.byId[event.sessionId].title),
+            h('ul', { 'aria-label': LW('项目文件变更记录') }, event.files.map(file => fileChangeRow(file))))),
+          olderError && h('p', { className: 'lw-hint', role: 'alert' }, olderError),
+          before != null && Btn({ variant: 'ghost', disabled: loading, onClick: loadOlder },
+            loading ? LW('正在读取…') : LW('加载更早的变更')))
+      }
       function projectToolTab(kind) {
         return function ProjectToolTab() {
           useNav()
@@ -7307,6 +7368,7 @@ window.__ModuleLoader__.load({
           useStore(ctx.layout.panelInfo)
           const current = currentRow(), sid = currentSession()?.id
           if (!isProjectChat(sid) || allBotSessionIds().has(sid)) return null
+          if (kind === 'labweave-file-changes') return h(ProjectFileChangeHistory, { key: current.workspaceId, row: current })
           return h(React.Suspense, { fallback: h('p', { className: 'lw-hint', role: 'status' }, LW('正在打开工具…')) },
             h(ToolPane, { key: current.workspaceId + ':' + kind, row: current, kind }))
         }

@@ -164,7 +164,7 @@ async function main() {
     await page.locator('[data-sidebar-right-open]').waitFor()
     const right = page.locator('[data-rightbar-col]')
     const entry = label => right.getByText(label, { exact: true })
-    for (const label of ['工作区文件', 'Git', '空间存储', '新建终端', '浏览器']) {
+    for (const label of ['工作区文件', 'Git', '空间存储', '项目文件变更', '新建终端', '浏览器']) {
       await entry(label).first().waitFor()
       assert.equal(await entry(label).count(), 1, `工具引导中应只有一个 ${label} 入口`)
     }
@@ -283,13 +283,14 @@ async function main() {
       const first = await newProject('右侧栏验收')
       await checkProjectTools('右侧栏验收', first.scope)
       const changesRoute = '**/api/labweave/project-file-changes'
+      const events = [
+        { id: 3, files: [{ path: 'outputs/report.md', action: 'changed' }, { path: 'outputs/old.md', action: 'removed' }] },
+        { id: 2, files: [{ path: 'outputs/report.md', action: 'changed' }] },
+        { id: 1, files: [{ path: 'outputs/report.md', action: 'added' }] },
+      ]
       await page.route(changesRoute, route => {
         const { sessionId } = route.request().postDataJSON()
-        return route.fulfill({ json: sessionId === first.sessionId ? [
-          { id: 3, files: [{ path: 'outputs/report.md', action: 'changed' }, { path: 'outputs/old.md', action: 'removed' }] },
-          { id: 2, files: [{ path: 'outputs/report.md', action: 'changed' }] },
-          { id: 1, files: [{ path: 'outputs/report.md', action: 'added' }] },
-        ] : [] })
+        return route.fulfill({ json: sessionId === first.sessionId ? events : [] })
       })
       const changeCard = page.locator('.lw-project-file-changes')
       await changeCard.getByText('2 个文件', { exact: true }).waitFor()
@@ -312,6 +313,39 @@ async function main() {
         return bounds.height > 0 && row.contains(document.elementFromPoint(bounds.x + 25, bounds.y + bounds.height / 2))
       })
       await preview('12-associated-file-changes')
+      await changeCard.getByRole('button', { name: '关闭项目文件变更提示' }).click()
+      await changeCard.waitFor({ state: 'hidden' })
+      await page.waitForResponse(response => response.url().endsWith('/api/labweave/project-file-changes'))
+      assert.equal(await changeCard.count(), 0)
+      execFileSync(python, ['-c', [
+        'import json, sys',
+        'from pathlib import Path',
+        'sys.path.insert(0, sys.argv[1])',
+        'import workspace, project_flow',
+        'workspace.DATA = Path(sys.argv[2])',
+        'for event in reversed(json.loads(sys.argv[5])):',
+        '    project_flow.record_file_changes(sys.argv[3], dict(sessionId=sys.argv[4], messageId=str(event["id"]), files=event["files"]))',
+      ].join('\n'), path.join(__dirname, '..', 'demo', 'api'), path.join(root, 'data'), first.scope, first.sessionId, JSON.stringify(events)])
+      await button('工具').click()
+      const right = page.locator('[data-rightbar-col]')
+      await right.getByRole('button', { name: '新标签页', exact: true }).click()
+      await page.getByRole('button', { name: '项目文件变更', exact: true }).filter({ visible: true }).last().click()
+      const history = right.getByRole('region', { name: '右侧栏验收 项目文件变更' })
+      await history.getByText('outputs/old.md', { exact: true }).waitFor()
+      assert.equal(await history.getByText('outputs/report.md', { exact: true }).count(), 3)
+      assert.equal(await history.getByText('删除', { exact: true }).count(), 1)
+      events.unshift({ id: 4, files: [{ path: 'outputs/new.md', action: 'added' }] })
+      await changeCard.getByText('1 个文件', { exact: true }).waitFor()
+      await page.setViewportSize({ width: 900, height: 700 })
+      await page.evaluate(() => { document.documentElement.style.zoom = '125%' })
+      await page.waitForFunction(element => {
+        const bounds = element.getBoundingClientRect()
+        return bounds.width > 0 && bounds.left >= 0 && bounds.right <= window.innerWidth + 1
+      }, await history.elementHandle())
+      await preview('13-project-file-change-history')
+      await page.evaluate(() => { document.documentElement.style.zoom = '' })
+      await page.setViewportSize({ width: 1280, height: 820 })
+      await button('工具').click()
       const stored = await owner('project', { sessionId: first.sessionId, action: 'files/list' })
       assert.equal(stored.code, 200)
       assert.equal(stored.data.length, 3)
@@ -319,6 +353,8 @@ async function main() {
       await changeCard.waitFor({ state: 'hidden' })
       await page.unroute(changesRoute)
       assert.deepEqual((await owner('project', { sessionId: second.sessionId, action: 'files/list' })).data, [])
+      assert.deepEqual((await owner('project', { sessionId: second.sessionId, action: 'files/changes' })).data,
+        { events: [], nextBefore: null })
       assert.equal((await owner('project', {
         sessionId: second.sessionId, action: 'files/download', args: { id: stored.data[0].id },
       })).code, 404)
