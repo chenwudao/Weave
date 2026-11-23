@@ -152,6 +152,7 @@ node --test tests/test_*.cjs
 | 原生提问、并行分派、Bot 画布及跟进 | [Bot 分派浏览器测试](tests/integration_bot_delegation.py)，使用固定版 DSH 和模拟模型 |
 | 真实模型、审批和问答 | [运行时](tests/integration_runtime.py)、[审批](tests/integration_approval.py)、[问答](tests/integration_question.py)；需要可用的模型配置 |
 | 端到端科研示例 | [科研验收案例](tests/research_case.py)，用论文和源代码验证参数量核算、记录和恢复 |
+| 项目演示案例 | [Iris 加噪实验](docs/demos/iris-noise/README.md)，含 Bot 分工、实验脚本、CSV 和图表 |
 
 ## 进一步阅读
 
