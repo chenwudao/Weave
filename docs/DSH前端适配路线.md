@@ -47,6 +47,8 @@ DeepSeek 密钥依次取自 `DEEPSEEK_API_KEY`、`demo/.local/deepseek.key` 和�
 
 ## 实现与隔离
 
+Windows 单文件内核 `0.2.2rc2` 的原生模块加载器只识别 `C:\snapshot` 和 `V:\snapshot` 这两种带盘符的虚拟路径。Web 和后台 SDK 从兼容盘符启动内核，项目对话使用独立的绑定目录。升级内核后复验其他盘符上的对话。 [上游复现记录](https://github.com/deepseek-ai/deepseek-harness/discussions/10269)
+
 Weave 插件位于 `plugins/dsh-labweave-workspace`，包 ID 为 `labweave-research-workspace`。`client/` 通过 DSH 的插槽接入项目侧栏、主面板、聊天和「更多」菜单。`host/` 注册本地工作区接口、原生对话工具及品牌资源。主题、会话消息、输入框、模型选择和快捷键沿用 DSH。
 
 从双插件版本启动升级时，启动器在原 Web 配置中更新 Weave 插件文件，并从 `profiles/web/package.json` 的加载列表和依赖中移除 `labweave-dsh-prototype`。升级沿用原配置目录、工作区、会话和定时任务标识，以及 SQLite、项目文件、模型配置和凭据。

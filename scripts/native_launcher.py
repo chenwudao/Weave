@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT / "demo" / "api"))
 import automation
 import model_config
 import native_web
+from runtime_paths import runtime_working_directory
 import session_cleanup
 import tasks
 import workspace
@@ -180,7 +181,8 @@ def native_services(port=8770, *, home=None, configured=True, background=True, t
                         tasks.recover()
                         stop_jobs = automation.start()
                     process = start_process([*resolve_bundled_launch_args(), "web", "--host", "127.0.0.1",
-                                             "--port", str(port), "--no-open"], cwd=ROOT,
+                                             "--port", str(port), "--no-open"],
+                                            cwd=runtime_working_directory(ROOT),
                                             env=native_env(home, backend, configured), stdout=subprocess.PIPE,
                                             stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
                     ready = queue.Queue()
