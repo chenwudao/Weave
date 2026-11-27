@@ -1,6 +1,7 @@
 """One literature search contract for Web tools and SDK MCP callers."""
 
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from itertools import zip_longest
 from io import BytesIO
 import json
@@ -279,13 +280,9 @@ class _ArxivRedirect(HTTPRedirectHandler):
         return super().redirect_request(request, file, code, message, headers, url)
 
 
-def read_arxiv(identity, page):
-    from pypdf import PdfReader
-    from pypdf.errors import PdfReadError
-
-    if not (isinstance(identity, str) and (match := ARXIV_ID.fullmatch(identity.strip()))):
-        raise workspace.WorkspaceError(400, "请输入 arXiv 论文编号，如 1706.03762v1。")
-    identity = match.group(1).lower()
+# Keep at most two validated public PDFs (50 MiB total) for adjacent page reads.
+@lru_cache(maxsize=2)
+def _arxiv_pdf(identity, refresh_window):
     url = "https://arxiv.org/pdf/" + identity
     limit = 25 * 1024 * 1024
     missing = 0
@@ -307,6 +304,20 @@ def read_arxiv(identity, page):
         if missing == 2:
             raise workspace.WorkspaceError(404, "arXiv 没有找到该论文版本。")
         raise workspace.WorkspaceError(502, "暂时无法从 arXiv 读取完整的 PDF。")
+    return body
+
+
+def read_arxiv(identity, page):
+    from pypdf import PdfReader
+    from pypdf.errors import PdfReadError
+
+    if not (isinstance(identity, str) and (match := ARXIV_ID.fullmatch(identity.strip()))):
+        raise workspace.WorkspaceError(400, "请输入 arXiv 论文编号，如 1706.03762v1。")
+    identity = match.group(1).lower()
+    url = "https://arxiv.org/pdf/" + identity
+    # A versioned identifier is immutable. An unversioned one can acquire a revision.
+    refresh_window = 0 if re.search(r"v[0-9]+$", identity) else int(monotonic() // 300)
+    body = _arxiv_pdf(identity, refresh_window)
     try:
         reader = PdfReader(BytesIO(body))
         if page > len(reader.pages):

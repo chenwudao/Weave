@@ -31,7 +31,11 @@ def main():
             messages = request["messages"]
             tool_names = {tool["function"]["name"] for tool in request.get("tools", [])}
             is_main_prompt = any(m["role"] == "user" and "MAIN_CHAT_PING" in str(m["content"]) for m in messages)
-            if ("labweave_memory_search" in tool_names and is_main_prompt
+            if any(m["role"] == "system" and "WEAVE_PROJECT_INTENT" in str(m.get("content")) for m in messages):
+                delta = {"role": "assistant", "content": json.dumps({"mode": "MANAGE", "research": False,
+                         "workflow": "within_scope", "missing": []})}
+                finish = "stop"
+            elif ("labweave_memory_search" in tool_names and is_main_prompt
                     and not any(m.get("tool_call_id") == "call_brand" for m in messages)):
                 delta = {"role": "assistant", "tool_calls": [{"index": 0, "id": "call_brand", "type": "function",
                          "function": {"name": "labweave_memory_search", "arguments": '{"query":"DSH 论文 $DSH_HOME"}'}}]}
@@ -78,7 +82,7 @@ def main():
             with launcher.native_services(0, home=web_home, configured=False, background=False) as (url, _):
                 subprocess.run(
                     ["node", str(ROOT / "tests/integration_model_config.cjs"), url,
-                     f"http://127.0.0.1:{srv.server_port}", str(root / "browser")],
+                     f"http://127.0.0.1:{srv.server_port}", str(root / "browser"), *sys.argv[1:]],
                     check=True,
                     timeout=240,
                 )
@@ -86,12 +90,13 @@ def main():
                 assert (sdk_cfg["provider"], sdk_cfg["model"]) == ("openai", "gpt-4o-mini")
                 key_ref = sdk_cfg["provider"].upper().replace("-", "_") + "_API_KEY"
                 assert sdk_cfg["env"].get(key_ref) == "sk-e2e-imported-1234"
-                assert len(seen) >= 2, f"Expected both Feature Bot and new-project main chat to call stub, got {len(seen)}"
+                assert len(seen) >= (1 if "--onboarding-only" in sys.argv else 2), f"Expected both Feature Bot and new-project main chat to call stub, got {len(seen)}"
                 for _, auth, req_body in seen:
                     assert auth == "Bearer sk-e2e-imported-1234", auth
                     assert json.loads(req_body).get("model") == "gpt-4o-mini", req_body
                 combined_bodies = "\n".join(b for _, _, b in seen)
-                assert "FEATURE_BOT_PING" in combined_bodies, "Feature Bot did not send prompt to stub provider"
+                if "--onboarding-only" not in sys.argv:
+                    assert "FEATURE_BOT_PING" in combined_bodies, "Feature Bot did not send prompt to stub provider"
                 assert "MAIN_CHAT_PING" in combined_bodies, "New project main chat did not send prompt to stub provider"
     finally:
         launcher.workspace.DATA = previous_data

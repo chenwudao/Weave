@@ -190,6 +190,8 @@ def native_services(port=8770, *, home=None, configured=True, background=True, t
                             match = LOGIN_URL.search(line)
                             if match:
                                 ready.put(match.group(0))
+                            elif diagnostic := re.search(r'\[Weave\] intent routing failed (\{"reason":"(?:timeout|format|connection|context)","stage":"(?:context|model)","elapsedMs":\d+\})', line):
+                                print("Weave 意图路由诊断 " + diagnostic.group(1), file=sys.stderr, flush=True)
                             elif "labweave" in line.lower() and any(s in line.lower() for s in ("error", "failed", "cannot")):
                                 # Upstream logs may contain credentials, URLs and user paths.
                                 errors.append("插件加载失败")

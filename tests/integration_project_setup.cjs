@@ -26,7 +26,7 @@ async function main() {
     return result.json()
   })
   const newGlobalChat = async () => {
-    await button('打开助手').click()
+    if (await button('打开助手').isVisible()) await button('打开助手').click()
     const newChat = button('新建全局对话')
     await newChat.waitFor()
     const previous = await chat.getAttribute('data-conversation-session')
@@ -42,36 +42,42 @@ async function main() {
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded' })
     await button('打开助手').click()
+    step = 'named researcher tracking'
+    await send('帮我创建一个项目专门研究daquan zhou的最新科研')
+    await page.getByRole('button', { name: 'daquan zhou 最新科研追踪', exact: true }).first().waitFor()
+    assert.equal(await question.count(), 0)
+    assert.equal((await state()).jobs, 0)
+    await newGlobalChat()
     step = 'broad project creation'
     await send('创建跟 Agent 相关的项目')
-    await question.getByRole('heading', { name: /想聚焦哪个研究方向/ }).waitFor()
     await button('Agent 研究').waitFor()
+    assert.equal(await question.count(), 0)
     assert.equal((await state()).jobs, 0)
     assert.deepEqual(await pendingHandoffs(), [])
-    const input = question.getByPlaceholder('输入你的答案')
-    await input.fill('Agent 记忆可靠性')
-    await input.press('Enter')
-    await question.getByRole('heading', { name: '本轮希望推进到哪一步？', exact: true }).waitFor()
-    assert.equal((await state()).jobs, 0)
-    assert.deepEqual(await pendingHandoffs(), [])
-    await question.getByRole('radio', { name: '先做一轮文献摸底' }).click()
-    if (await question.isVisible()) await question.getByRole('button', { name: /提交|完成/ }).click()
-    step = 'confirmed handoff'
-    await chat.getByText('文献摸底完成', { exact: true }).waitFor({ timeout: 75000 })
-    assert.equal((await state()).jobs, 1)
     step = 'explicit delegation'
     await newGlobalChat()
     await send('创建一个跟 Agent 相关的项目，帮我选一个方向并开始')
     await chat.getByText('文献摸底完成', { exact: true }).waitFor({ timeout: 75000 })
     assert.equal(await question.count(), 0)
-    assert.equal((await state()).jobs, 2)
+    assert.equal((await state()).jobs, 1)
+    step = 'example and accepted continuation'
+    await newGlobalChat()
+    await send('训练数据和测试数据怎么分？')
+    await chat.getByText('例如，把九段演示用于训练，另留三段用于测试。', { exact: true }).waitFor()
+    await chat.getByText('要我解释为什么同一段演示只能放进一组吗？', { exact: true }).waitFor()
+    assert.equal(await question.count(), 0)
+    assert.deepEqual(await pendingHandoffs(), [])
+    await send('继续')
+    await chat.getByText('如果同一段演示同时出现在两组里，测试时就可能遇到训练时见过的画面。', { exact: true }).waitFor()
+    assert.equal(await question.count(), 0)
+    assert.equal((await state()).jobs, 1)
   } catch (error) {
     console.error(step, (await page.locator('body').innerText()).slice(-1800))
     throw error
   } finally {
     await browser.close()
   }
-  console.log('宽泛领域建项、提问卡确认、确认后转交与分派、明确授权直接推进通过。')
+  console.log('项目创建、首步分派、示例先答与原对话续做通过。')
 }
 
 main().catch(error => { console.error(error.message); process.exitCode = 1 })

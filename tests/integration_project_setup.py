@@ -45,12 +45,26 @@ def main():
                 intake = json.loads(user_text)
                 latest = intake["latest"]
                 decision = {"mode": "MANAGE", "research": False, "workflow": "within_scope", "missing": []}
+                if latest == "训练数据和测试数据怎么分？":
+                    decision.update(reply="example", research=True)
+                if "daquan zhou" in latest:
+                    decision["creation"] = {"kind": "named_only", "name": "daquan zhou 最新科研追踪"}
+                if latest == "继续":
+                    assert any("要我解释为什么同一段演示只能放进一组吗？" in entry["text"] for entry in intake["recent"])
                 if "帮我选一个方向并开始" in latest and not intake["project"].get("name"):
                     decision["creation"] = {"kind": "start", "name": "Agent 评测",
                                             "authorization": "帮我选一个方向并开始"}
                 if intake["project"].get("name") and "探索性文献摸底" in latest:
                     decision.update(mode="EXECUTE", research=True)
                 answer = json.dumps(decision, ensure_ascii=False)
+            elif "训练数据和测试数据怎么分？" in user_text:
+                if any("要我解释为什么同一段演示只能放进一组吗？" in str(m.get("content"))
+                       for m in messages if m["role"] == "assistant"):
+                    answer = "如果同一段演示同时出现在两组里，测试时就可能遇到训练时见过的画面。"
+                else:
+                    assert "# 先给示例" in system + user_text
+                    assert "# Weave 科研项目闭环" not in system + user_text
+                    answer = "例如，把九段演示用于训练，另留三段用于测试。\n\n要我解释为什么同一段演示只能放进一组吗？"
             elif "structured_output" in tools:
                 assert "探索性文献摸底" in user_text and "真实实验" not in user_text
                 command = ("deliver", "structured_output", {
@@ -59,6 +73,8 @@ def main():
             elif "labweave_project_create" in tools:
                 if "create" not in outputs:
                     command = ("create", "labweave_project_create", {"name": "Agent 评测"})
+                elif "daquan zhou" in user_text:
+                    assert json.loads(outputs["create"])["name"] == "daquan zhou 最新科研追踪"
                 elif "handoff" not in outputs:
                     project = json.loads(outputs["create"])
                     # Try a handoff even after a skipped card. The host must enforce the answer.

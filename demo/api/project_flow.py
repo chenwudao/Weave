@@ -59,7 +59,80 @@ def write(project, data):
         append(db, project, kind + ":" + session + ":" + message, kind,
                {"sessionId": session, "messageId": message, "text": body,
                 "createdAt": datetime.now(timezone.utc).isoformat(), **data_fields})
+        if kind == "input" and data.get("checkPinnedRules") is True:
+            pinned = db.execute("SELECT 1 FROM memories WHERE project=? AND category='rule' AND pinned=1 LIMIT 1",
+                                (project,)).fetchone()
+            return {"ok": True, "hasPinnedRules": bool(pinned)}
     return {"ok": True}
+
+
+def publish_coordination(project, data):
+    session = workspace.text(data.get("sessionId"), 160)
+    request = workspace.text(data.get("requestId"), 200)
+    key = workspace.text(data.get("updateId"), 100)
+    body = {field: workspace.text(data.get(field), limit) for field, limit in
+            (("title", 100), ("summary", 500), ("nextStep", 240))}
+    if not session or not request or not key or not all(body.values()):
+        raise workspace.WorkspaceError(400, "请提供任务理解、安排依据和下一步。")
+    with closing(workspace.database()) as db, db:
+        ensure(db)
+        if not db.execute("SELECT 1 FROM labweave_project_flow WHERE project=? AND event_key=? AND kind='input'",
+                          (project, f"input:{session}:{request}")).fetchone():
+            raise workspace.WorkspaceError(409, "这项更新需要关联当前项目对话。")
+        append(db, project, f"coordination:{session}:{request}:{key}", "coordination",
+               {"sessionId": session, "requestId": request, **body})
+    return {"ok": True}
+
+
+def coordination_updates(project, session):
+    with closing(workspace.database()) as db:
+        ensure(db)
+        rows = db.execute("""SELECT seq,payload FROM labweave_project_flow
+            WHERE project=? AND kind='coordination' AND json_extract(payload,'$.sessionId')=?
+              AND json_extract(payload,'$.requestId')=(
+                SELECT json_extract(i.payload,'$.messageId') FROM labweave_project_flow i
+                WHERE i.project=? AND i.kind='input' AND json_extract(i.payload,'$.sessionId')=?
+                ORDER BY i.seq DESC LIMIT 1)
+            ORDER BY seq DESC LIMIT 5""", (project, session, project, session)).fetchall()
+    return [{"id": seq, **json.loads(payload)} for seq, payload in reversed(rows)]
+
+
+def paper_activity(project, data):
+    session = workspace.text(data.get("sessionId"), 160)
+    key = workspace.text(data.get("activityId"), 100)
+    query = workspace.text(data.get("query"), 300)
+    status = data.get("status")
+    if not session or not key or not query or status not in ("running", "completed", "failed", "cancelled"):
+        raise workspace.WorkspaceError(400, "无效的论文检索进展。")
+    titles = data.get("titles", [])
+    payload = {"sessionId": session, "taskId": workspace.text(data.get("taskId"), 100),
+               "botId": workspace.text(data.get("botId"), 100), "query": query, "label": workspace.text(data.get("label"), 24) or "搜索论文",
+               "status": status, "ts": datetime.now(timezone.utc).isoformat(),
+               "count": data.get("count"), "titles": [workspace.text(t, 250) for t in titles[:4]]}
+    with closing(workspace.database()) as db, db:
+        ensure(db)
+        db.execute("""INSERT INTO labweave_project_flow(project,event_key,kind,payload)
+            VALUES(?,?,'paper-activity',?) ON CONFLICT(project,event_key) DO UPDATE SET payload=excluded.payload
+            WHERE json_extract(labweave_project_flow.payload,'$.status')='running'""",
+                   (project, f"paper:{session}:{key}", json.dumps(payload, ensure_ascii=False)))
+    return {"ok": True}
+
+
+def paper_activities(db, project, *, session=None, task=None, bot=None, after=0):
+    field, value = ("botId", bot) if bot is not None else ("taskId", task) if task is not None else ("sessionId", session)
+    direct = "AND json_extract(payload,'$.taskId')=''" if bot is not None else ""
+    rows = db.execute(f"""SELECT seq,payload FROM labweave_project_flow WHERE project=? AND kind='paper-activity'
+            AND seq>? AND json_extract(payload,'$.{field}')=? {direct} ORDER BY seq DESC LIMIT 12""",
+                      (project, after, value)).fetchall()
+    return [{"id": seq, **json.loads(payload)} for seq, payload in reversed(rows)]
+
+
+def conversation_paper_activities(project, session):
+    with closing(workspace.database()) as db:
+        ensure(db)
+        cursor = db.execute("""SELECT coalesce(max(seq),0) FROM labweave_project_flow
+            WHERE project=? AND kind='input' AND json_extract(payload,'$.sessionId')=?""", (project, session)).fetchone()[0]
+        return paper_activities(db, project, session=session, after=cursor)
 
 
 def current_version(db, project):
@@ -89,13 +162,15 @@ def record_file_changes(project, data):
     return {"ok": True}
 
 
-def _file_changes(project, session=None, *, before=None, limit=30):
+def _file_changes(project, session=None, *, before=None, after=None, limit=30):
+    order = "ASC" if after is not None else "DESC"
+    upper = before - 1 if before is not None else 2**63 - 1
     with closing(workspace.database()) as db:
         ensure(db)
-        rows = db.execute("""SELECT seq,payload FROM labweave_project_flow WHERE project=? AND kind='file-change'
+        rows = db.execute(f"""SELECT seq,payload FROM labweave_project_flow WHERE project=? AND kind='file-change'
             AND (? IS NULL OR json_extract(payload,'$.sessionId')=?)
-            AND (? IS NULL OR seq<?) ORDER BY seq DESC LIMIT ?""",
-                          (project, session, session, before, before, limit)).fetchall()
+            AND seq>? AND seq<=? ORDER BY seq {order} LIMIT ?""",
+                          (project, session, session, after or 0, upper, limit)).fetchall()
     return [{"id": seq, **json.loads(payload)} for seq, payload in rows]
 
 
@@ -103,9 +178,14 @@ def file_changes(project, session):
     return _file_changes(project, session) if session else []
 
 
-def file_change_page(project, before=None):
+def file_change_page(project, before=None, after=None):
     if before is not None and (type(before) is not int or not 0 < before <= 2**63 - 1):
         raise workspace.WorkspaceError(400, "无效的文件变更历史位置。")
+    if after is not None:
+        if before is not None or type(after) is not int or not 0 <= after <= 2**63 - 1:
+            raise workspace.WorkspaceError(400, "无效的文件变更历史位置。")
+        events = _file_changes(project, after=after, limit=31)
+        return {"events": events[:30], "hasMore": len(events) > 30}
     events = _file_changes(project, before=before, limit=31)
     return {"events": events[:30], "nextBefore": events[29]["id"] if len(events) > 30 else None}
 
@@ -152,7 +232,7 @@ def retract(project, data):
 def read(project, after=None, audience=None):
     if after is not None and (type(after) is not int or not 0 <= after < 2**63):
         raise workspace.WorkspaceError(400, "项目事件位置无效。")
-    filters = "project=? AND kind NOT IN ('withdrawn','file-change')"
+    filters = "project=? AND kind NOT IN ('withdrawn','file-change','paper-activity')"
     params = [project]
     if audience and audience.get("artifactsOnly") is True:
         filters += " AND kind IN ('decision','artifact')"
@@ -165,6 +245,9 @@ def read(project, after=None, audience=None):
             OR (kind='input' AND (json_extract(payload,'$.sessionId')=?
                 OR (json_extract(payload,'$.sessionId')=? AND json_extract(payload,'$.messageId')=?)))"""
         params.extend((session, parent, session, parent, audience.get("requestId")))
+        if audience.get("requestId"):
+            scope += " OR (kind='coordination' AND json_extract(payload,'$.sessionId')=? AND json_extract(payload,'$.requestId')=?)"
+            params.extend((parent, audience["requestId"]))
         if audience.get("includeArtifacts") is True:
             scope += " OR kind='artifact'"
         if work:

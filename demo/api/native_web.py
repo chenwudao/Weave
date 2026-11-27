@@ -269,7 +269,7 @@ def project_action(scope, data):
     if action == "files/list":
         return projects.stored_files(scope)
     if action == "files/changes":
-        return project_flow.file_change_page(scope, args.get("before"))
+        return project_flow.file_change_page(scope, before=args.get("before"), after=args.get("after"))
     if action == "files/reference":
         page = args.get("page", 1)
         if type(page) is not int or page < 1:
@@ -356,10 +356,22 @@ def dispatch(route, data):
             raise workspace.WorkspaceError(403, "项目事件需要明确的项目。")
         if data.get("action") == "read":
             return project_flow.read(scope, data.get("after"), data.get("audience"))
+        if data.get("action") == "saved-review":
+            return bot_dispatches.saved_review(scope, data.get("sessionId"))
+        if data.get("action") == "paper-activity":
+            return project_flow.paper_activity(scope, data)
+        if data.get("action") == "coordination":
+            return project_flow.publish_coordination(scope, data)
         if data.get("action") == "file-change":
             return project_flow.record_file_changes(scope, data)
         if data.get("action") == "file-changes":
-            return project_flow.file_changes(scope, data.get("sessionId"))
+            session = data.get("sessionId")
+            changes = project_flow.file_changes(scope, session)
+            if data.get("includeFinding") is True:
+                return {"changes": changes, "finding": bot_dispatches.conversation_finding(scope, session),
+                        "coordination": project_flow.coordination_updates(scope, session),
+                        "paperActivities": project_flow.conversation_paper_activities(scope, session)}
+            return changes
         if data.get("action") in ("input", "decision"):
             return project_flow.write(scope, data)
         if data.get("action") == "retract":

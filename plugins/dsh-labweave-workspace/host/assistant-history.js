@@ -27,6 +27,7 @@ export const toolLabels = {
   bot_delegate: '分派 Bot',
   bot_publish_drafts: '发布 Bot 草稿',
   bot_canvas_draft: '更新 Bot 工作进度', structured_output: '提交结构化成果',
+  project_progress: '更新项目进展',
   bot_blocked: '记录任务阻塞',
   bot_cluster: '聚类功能 Bot',
   global_memory_search: '查找全局记忆', global_memory_write: '保存全局记忆',

@@ -11,6 +11,7 @@ test('one batch reserves isolated Bot workers and only archives completed assign
   const archived = []
   const tracked = []
   let tool, draftTool, guard
+  let request
   const controller = new AbortController()
   const parent = { session: { header: { id: 'parent' } } }
   let mode = 'workspace-write'
@@ -33,9 +34,11 @@ test('one batch reserves isolated Bot workers and only archives completed assign
   }
   const delegation = createBotDelegation(ctx, {
     caller: () => ({ row: { scope: 'project-a', features: bots }, workspace: { path: 'project-path' } }),
+    requestState: () => request,
     output: {},
     layoutFields: { eventDate: { type: 'string' }, relationLabel: { type: 'string' } },
     async call(route, data) {
+      if (route === 'project-flow') return { version: 1 }
       if (route === 'bot-dispatch-start' || route === 'bot-dispatch-update') {
         tracked.push({ route, ...data })
         return { ok: true }
@@ -104,4 +107,28 @@ test('one batch reserves isolated Bot workers and only archives completed assign
   assert.equal(tracked.find(item => item.status === 'completed').result.recordId, 'saved-note')
   assert.equal(tracked.filter(item => item.status === 'running').length, 2)
   assert.ok(guard({ agent: notes, name: 'labweave_memory_search' }))
+
+  request = { requestId: 'one-example', decision: { exampleFirst: true }, results: new Map() }
+  const sample = { featureId: bots[0].id, task: '从指定论文核对一项指标', saveResult: false }
+  const dispatch = (...assignments) => tool.execute({ assignments }, exec)
+  assert.equal(JSON.parse(await dispatch(sample, sample))[0].status, 'blocked')
+  const [first, overlapping] = [dispatch(sample), dispatch(sample)]
+  assert.equal(JSON.parse(await overlapping)[0].status, 'blocked')
+  assert.match(launches.at(-1).spec.prompt[0].text, /单个样例作为本轮交付/)
+  launches.at(-1).finish({ stopReason: 'completed', structured: { title: '指标', answer: '见第 2 页', outcome: 'completed' } })
+  assert.equal(JSON.parse(await first)[0].status, 'completed')
+  assert.equal(JSON.parse(await dispatch(sample))[0].status, 'blocked')
+  assert.equal(launches.length, 3)
+  request = {requestId: 'verification', decision: {handoffs: [{from: bots[0].id, to: bots[1].id}]}, results: new Map()}
+  const verify = {featureId: bots[1].id, task: '对照原文复核'}
+  assert.equal(JSON.parse(await dispatch(verify))[0].status, 'blocked')
+  request.results.set('upstream', {childSessionId: 'upstream', featureId: bots[0].id, status: 'completed', policyVersion: 1})
+  assert.equal(JSON.parse(await dispatch(verify))[0].status, 'blocked')
+  request.results.get('upstream').recordId = 'saved-note'
+  const review = dispatch(verify)
+  await new Promise(resolve => setImmediate(resolve))
+  assert.match(launches.at(-1).spec.prompt[0].text, /saved-note/)
+  launches.at(-1).finish({stopReason: 'completed', structured: {title:'复核', answer:'已核对', outcome:'completed'}})
+  assert.equal(JSON.parse(await review)[0].status, 'needs_follow_up')
+
 })
