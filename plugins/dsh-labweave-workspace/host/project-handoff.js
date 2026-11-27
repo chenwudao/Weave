@@ -22,13 +22,8 @@ export function registerProjectHandoff(ctx, { caller, rows, ownerRoute, call, ou
     const state = requestState(agent)
     const creation = state?.decision?.creation?.kind
     const setup = state?.projectSetup
-    if (setup || creation === 'confirm' || creation === 'named_only') {
-      if (setup?.projectId !== projectId || !setup?.answer?.task) {
-        throw fail('请在项目创建提问卡中确认研究方向和推进范围后再转交。', 409)
-      }
-      task = setup.answer.task
-      botId = undefined
-      key = 'project-setup:' + projectId
+    if ((setup || creation) && (creation !== 'start' || setup?.projectId !== projectId)) {
+      throw fail('请先确认这次希望在新项目里实际执行的第一步，再转交。', 409)
     }
     const row = project(projectId)
     const clean = typeof task === 'string' ? task.trim() : ''

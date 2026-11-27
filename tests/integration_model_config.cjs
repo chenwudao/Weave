@@ -22,7 +22,7 @@ async function run() {
 
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 })
-    await button('Weave').last().waitFor({ timeout: 30000 })
+    await page.locator('.lw-wordmark').waitFor({ timeout: 30000 })
 
     step = '首次使用只显示模型 API 配置'
     const setup = page.getByRole('dialog', { name: '配置模型 API', exact: true })
@@ -32,6 +32,28 @@ async function run() {
     assert.equal(await setup.locator('input').count(), 1)
     assert.equal(await setup.locator('select').count(), 0)
     assert.equal(await setup.getByRole('combobox').count(), 1)
+    const viewport = page.viewportSize()
+    await page.setViewportSize({ width: 760, height: 620 })
+    await page.evaluate(() => { document.documentElement.style.zoom = '1.25' })
+    await setup.getByText('第一次使用 API Key？', { exact: true }).click()
+    await setup.getByText(/在模型供应商的开发者控制台创建/).waitFor()
+    await setup.getByText('暂时没有密钥？', { exact: true }).click()
+    await setup.getByText(/选“稍后配置”可先创建项目/).waitFor()
+    assert.ok(await setup.evaluate(el => el.scrollWidth <= el.clientWidth + 1))
+    await page.evaluate(() => { document.documentElement.style.zoom = '' })
+    await page.setViewportSize(viewport)
+    if (process.argv.includes('--onboarding-only')) {
+      const guest = await browser.newContext({ locale: 'zh-CN' })
+      try {
+        const local = await guest.newPage()
+        await local.goto(url, {waitUntil:'domcontentloaded'})
+        const guide = local.getByRole('dialog', {name:'配置模型 API'})
+        await guide.getByRole('button', {name:'稍后配置'}).click()
+        await guide.waitFor({state:'hidden'})
+        await local.getByRole('button', {name:'模型与 API',exact:true}).click()
+        await local.locator('[data-shortcut-modal="settings"]').waitFor()
+      } finally { await guest.close() }
+    }
     await setup.getByLabel('模型供应商', { exact: true }).click()
     await page.locator('[role="listbox"] [role="option"][data-value="openai"]').click()
     await setup.getByLabel('API Key', { exact: true }).fill('sk-e2e-imported-1234')
@@ -40,7 +62,16 @@ async function run() {
 
     step = '验证 API 配置写入原生模型设置并在重新打开后生效'
     await page.reload()
-    await button('Weave').last().waitFor()
+    await page.locator('.lw-wordmark').waitFor()
+    if (process.argv.includes('--onboarding-only')) {
+      await page.getByRole('button', {name:'打开助手',exact:true}).click()
+      await page.locator('[contenteditable=true]:visible').last().fill('MAIN_CHAT_PING')
+      assert.equal(await setup.count(), 0)
+      await button('发送消息').click()
+      await page.getByText('STUB_MODEL_OK', {exact:true}).last().waitFor({timeout:60000})
+      console.log('首次教学、稍后配置、保存及重载后的模型回复均通过')
+      return
+    }
     await page.getByRole('button', { name: /gpt[- ]4o[- ]mini/i }).first().waitFor()
     assert.equal(await page.getByRole('dialog').count(), 0)
     await button('模型与 API').click()

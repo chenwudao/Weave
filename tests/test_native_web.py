@@ -292,6 +292,32 @@ class NativeWorkspaceTests(unittest.TestCase):
         self.assertNotIn("上一版本", remaining["elements"])
         self.assertNotIn("parentId", remaining)
 
+    def test_saved_review_reads_only_current_linked_records(self):
+        project, other = self.projects
+        one = features.create_feature(project, "摘录", paradigm="notes")["feature"]["id"]
+        two = features.create_feature(project, "复核", paradigm="notes")["feature"]["id"]
+        def call(route, **args):
+            return web.dispatch(route, {"workspace": self.records[project], **args})
+        def read(session="chat"):
+            return call("project-flow", action="saved-review", sessionId=session)
+        call("project-flow", action="input", sessionId="chat", messageId="q", text="摘录并复核")
+        deps, sources = [], []
+        for digit, bot in (("a", one), ("b", two)):
+            identity = "weave-bot-run-" + digit * 32
+            call("bot-dispatch-start", parentSessionId="chat", jobs=[{"id": identity, "featureId": bot,
+                 "task": "核对", "requestId": "q", "dependsOn": deps, "policyVersion": 0}])
+            entry = web.projects.create_entry(project, bot, {"title": "表 2", "text": "准确率 81.25%", "sources": sources})
+            call("bot-dispatch-update", id=identity, status="completed", result={"recordId": entry["id"], "policyVersion": 0})
+            deps, sources = [identity], [{"recordId": entry["id"]}]
+        self.assertTrue(read()[-1]["verified"])
+        self.assertEqual(read()[-1]["sources"][0]["id"], read()[0]["id"])
+        self.assertEqual(read("another"), [])
+        self.assertEqual(web.dispatch("project-flow", {"workspace": self.records[other], "action": "saved-review", "sessionId": "chat"}), [])
+        web.projects.update_entry(project, one, {"id": read()[0]["id"], "text": "原文已修订"})
+        self.assertFalse(read()[-1]["verified"])
+        call("project-flow", action="retract", sessionId="chat", messageId="undo", messageIds=["q"])
+        self.assertEqual(read(), [])
+
     def test_bot_flow_replays_project_updates_and_gates_dependencies(self):
         a, b = self.projects
         bot = features.create_feature(a, "原文核对", paradigm="notes")["feature"]["id"]
@@ -315,10 +341,17 @@ class NativeWorkspaceTests(unittest.TestCase):
         start(first)
         with self.assertRaises(workspace.WorkspaceError):
             start(next_task, [first])
-        call("bot-dispatch-update", id=first, status="completed", result={"answer": "已核实", "policyVersion": 0})
+        unsaved = "weave-bot-run-" + "e" * 32
+        start(unsaved)
+        call("bot-dispatch-update", id=unsaved, status="completed", result={"answer": "仅回复"})
+        with self.assertRaises(workspace.WorkspaceError):
+            start(next_task, [unsaved])
+        record = web.projects.create_entry(a, bot, {"title": "核对记录", "text": "已核实"})
+        call("bot-dispatch-update", id=first, status="completed", result={"answer": "已核实", "policyVersion": 0,
+                                                                         "recordId": record["id"]})
         start(next_task, [first])
         updates = call("project-flow", action="read", after=snapshot["cursor"])
-        self.assertEqual([event["status"] for event in updates["events"]], ["queued", "completed", "queued"])
+        self.assertEqual([event["status"] for event in updates["events"] if event["kind"] == "task" and event["taskId"] != unsaved], ["queued", "completed", "queued"])
         call("project-flow", action="decision", sessionId="project-chat", messageId="rule-2", text="更换验收条件")
         stale = call("bot-dispatch-update", id=next_task, status="completed", result={"answer": "旧版", "policyVersion": 0})
         self.assertEqual(stale["status"], "needs_follow_up")
@@ -502,6 +535,84 @@ class NativeWorkspaceTests(unittest.TestCase):
             stream.write("1200,0.5\n")
         self.assertEqual(latest()["visualizations"][0]["points"][-1], {"x": 1200, "y": 0.5})
 
+    def test_input_checks_only_its_projects_pinned_rules(self):
+        alpha, beta = self.projects
+        web.projects.remember(alpha, "所有百分比保留一位小数", category="rule", pinned=True)
+        for project in (alpha, beta):
+            result = web.dispatch("project-flow", {"workspace": self.records[project], "action": "input",
+                "sessionId": "origin", "messageId": "question", "text": "什么是召回率？", "checkPinnedRules": True})
+            self.assertEqual(result["hasPinnedRules"], project == alpha)
+
+    def test_coordination_updates_follow_the_origin_request(self):
+        project, other = self.projects
+        def flow(scope, action, **args):
+            return web.dispatch("project-flow", {"workspace": self.records[scope], "action": action, **args})
+        def visible(scope, session):
+            return flow(scope, "file-changes", sessionId=session, includeFinding=True)["coordination"]
+
+        flow(project, "input", sessionId="origin", messageId="first", text="核对原文")
+        update = {"sessionId": "origin", "requestId": "first", "updateId": "plan",
+                  "title": "先查原文", "summary": "按表 2 的原始定义核对", "nextStep": "读取第 2 页"}
+        flow(project, "coordination", **update)
+        flow(project, "coordination", **update)
+        self.assertEqual([item["nextStep"] for item in visible(project, "origin")], ["读取第 2 页"])
+        self.assertEqual(visible(project, "other-chat"), [])
+        self.assertEqual(visible(other, "origin"), [])
+        self.assertEqual(flow(project, "read")["version"], 0)
+        def bot_reads(request):
+            return flow(project, "read", audience={"sessionId": "bot", "parentSessionId": "origin",
+                                                    "requestId": request})["events"]
+        self.assertTrue(any(item["kind"] == "coordination" for item in bot_reads("first")))
+        self.assertFalse(any(item["kind"] == "coordination" for item in bot_reads("second")))
+        flow(project, "input", sessionId="origin", messageId="second", text="核对另一篇")
+        self.assertEqual(visible(project, "origin"), [])
+
+    def test_sourced_draft_is_visible_only_to_origin_while_running(self):
+        project, other = self.projects
+        bot = features.create_feature(project, "文献笔记", paradigm="notes")["feature"]["id"]
+        identity = "weave-bot-run-" + "f" * 32
+        def send(route, **args):
+            return web.dispatch(route, {"workspace": self.records[project], **args})
+        def finding(scope, session):
+            return web.dispatch("project-flow", {"workspace": self.records[scope], "action": "file-changes",
+                                "sessionId": session, "includeFinding": True})["finding"]
+        send("bot-dispatch-start", parentSessionId="origin", jobs=[{"id": identity, "featureId": bot, "task": "查文献",
+                    "publicTask": "检查原文是否包含对照组"}])
+        self.assertEqual(finding(project, "origin")["title"], "检查原文是否包含对照组")
+        activity = {"action": "paper-activity", "activityId": "search-1", "sessionId": "origin",
+                    "taskId": identity, "query": "retrieval augmented generation", "status": "running"}
+        send("project-flow", **activity)
+        send("project-flow", **{**activity, "status": "completed", "count": 2, "titles": ["RAGAS", "RAGBench"]})
+        updates = send("project-flow", action="file-changes", sessionId="origin", includeFinding=True)["paperActivities"]
+        self.assertEqual([(row["query"], row["status"], row["count"]) for row in updates],
+                         [("retrieval augmented generation", "completed", 2)])
+        view = send("project", action="bot_canvas", args={"featureId": bot})
+        self.assertTrue(any("RAGAS" in card["text"] for card in view["drafts"]))
+        tool_rows = [card["paperActivity"] for card in view["messages"] if card.get("paperActivity")]
+        self.assertEqual([row["titles"] for row in tool_rows], [["RAGAS", "RAGBench"]])
+        send("project-flow", **{**activity, "activityId": "direct", "taskId": "", "sessionId": "bot-chat",
+                                 "botId": bot, "label": "阅读论文", "query": "Ragas · 第 3 页", "status": "completed"})
+        direct = send("project-flow", action="file-changes", sessionId="bot-chat", includeFinding=True)["paperActivities"]
+        self.assertEqual([row["label"] for row in direct], ["阅读论文"])
+        view = send("project", action="bot_canvas", args={"featureId": bot})
+        self.assertTrue(any(card["title"] == "阅读论文 · Ragas · 第 3 页" for card in view["drafts"]))
+        self.assertEqual(send("project-flow", action="file-changes", sessionId="another",
+                              includeFinding=True)["paperActivities"], [])
+
+        send("bot-dispatch-update", id=identity, status="running", result={})
+        args = {"key": "paper", "title": "阶段记录", "text": "论文使用了对照组。"}
+        send("bot-dispatch-draft", id=identity, args=args)
+        self.assertEqual(finding(project, "origin")["summary"], args["text"])
+        self.assertEqual(finding(project, "origin")["sources"], [])
+        self.assertEqual(finding(project, "origin")["text"], args["text"])
+        source = {"title": "原文", "url": "https://example.org/paper"}
+        send("bot-dispatch-draft", id=identity, args={**args, "sources": [source]})
+        self.assertEqual(finding(project, "origin")["sources"], [source])
+        self.assertIsNone(finding(project, "different"))
+        self.assertIsNone(finding(other, "origin"))
+        send("bot-dispatch-update", id=identity, status="failed", result={"detail": "测试结束"})
+        self.assertIsNone(finding(project, "origin"))
+
     def test_engineering_canvas_detects_drafts_that_repeat_saved_results(self):
         project, _ = self.projects
         bot = features.create_feature(project, "实验台", paradigm="engineering")["feature"]["id"]
@@ -545,7 +656,7 @@ class NativeWorkspaceTests(unittest.TestCase):
                      publishDraftIds=[verified], final={"title": "训练交付", "answer": verified_text})
         self.assertEqual(conflict.exception.status, 409)
         published = dispatch("bot-dispatch-promote", id=identity, parentSessionId=parent,
-                             publishDraftIds=[verified], final={"title": "训练交付"})
+                             publishDraftIds=["verified"], final={"title": "训练交付"})
         canvas = action("bot_canvas")
         cards = {item["id"]: item for item in canvas["drafts"]}
         self.assertEqual(cards[repeated]["duplicateOf"], saved["id"])
@@ -764,8 +875,18 @@ class NativeWorkspaceTests(unittest.TestCase):
         self.assertIsNone(second["nextBefore"])
         self.assertEqual(page(b)["events"][0]["files"][0]["path"], "outputs/other.txt")
         self.assertEqual(len(web.project_flow.file_changes(a, "session-0")), 16)
+        updates = page(a, after=0)
+        self.assertEqual([event["files"][0]["path"] for event in updates["events"]],
+                         [f"outputs/{index}.txt" for index in range(30)])
+        self.assertTrue(updates["hasMore"])
+        tail = page(a, after=updates["events"][-1]["id"])
+        self.assertEqual(tail["events"], first["events"][:1])
+        self.assertFalse(tail["hasMore"])
+        self.assertEqual(page(a, after=tail["events"][0]["id"]), {"events": [], "hasMore": False})
         with self.assertRaises(workspace.WorkspaceError):
             page(a, before="30")
+        with self.assertRaises(workspace.WorkspaceError):
+            page(a, before=30, after=1)
 
     def test_offline_backup_restores_business_and_session_as_a_pair(self):
         home = self.root / "profile"

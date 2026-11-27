@@ -10,19 +10,20 @@ export function researchSkill(bot) {
 }
 
 export const researchProjectLoopName = 'research-project-loop'
-let projectLoop
+const workflowBodies = new Map()
 
-export function researchProjectLoop() {
-  const path = researchProjectLoopName + '/SKILL.md'
-  if (projectLoop === undefined) {
-    try { projectLoop = readFileSync(new URL('../research-workflows/' + path, import.meta.url), 'utf8') }
+export function workflowSkill(name) {
+  if (!workflowBodies.has(name)) {
+    const path = name + '/SKILL.md'
+    let markdown
+    try { markdown = readFileSync(new URL('../research-workflows/' + path, import.meta.url), 'utf8') }
     catch (error) {
       if (error.code !== 'ENOENT') throw error
-      projectLoop = readFileSync(new URL('../../../skills/' + path, import.meta.url), 'utf8')
+      markdown = readFileSync(new URL('../../../skills/' + path, import.meta.url), 'utf8')
     }
-    projectLoop = projectLoop.replace(/^---\r?\n[\s\S]+?\r?\n---\r?\n/u, '').trim()
+    workflowBodies.set(name, markdown.replace(/^---\r?\n[\s\S]+?\r?\n---\r?\n/u, '').trim())
   }
-  return projectLoop
+  return workflowBodies.get(name)
 }
 
 export const canvasCardGuidance = [

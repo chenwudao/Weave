@@ -89,7 +89,9 @@ def start(project, parent, jobs):
                 valid = db.execute("""SELECT 1 FROM labweave_bot_dispatches AS task
                     JOIN labweave_bot_dispatch_links AS link ON task.project=link.project AND task.id=link.dispatch
                     WHERE task.project=? AND task.id=? AND task.parent_session=?
-                    AND task.status='completed' AND link.request_id=? AND link.policy_version=?""",
+                    AND task.status='completed' AND EXISTS (SELECT 1 FROM entities e
+                        WHERE e.project=task.project AND e.kind=task.feature AND e.id=task.record_id)
+                      AND link.request_id=? AND link.policy_version=?""",
                     (project, dep, parent, request, current_version)).fetchone()
                 if not request or not valid:
                     raise workspace.WorkspaceError(409, "前置任务尚未在本次请求中完成。")
@@ -325,7 +327,8 @@ def promote_drafts(project, identity, parent, selection=None, *, final=None):
     summary = drafts[summary_id]
     summary["text"] = workspace.text((final or {}).get("answer"), 16000) or answer or summary["text"]
     summary["title"] = workspace.text((final or {}).get("title"), 200) or title or summary["title"]
-    pending = [summary_id, *(selection or ())]
+    # Accept a card key or the full ID returned by the draft tool, scoped to this dispatch.
+    pending = [summary_id, *(prefix + key if prefix + key in drafts else key for key in (selection or ()))]
     chosen = {}
     while pending:
         target = pending.pop()
@@ -419,6 +422,17 @@ def promote_drafts(project, identity, parent, selection=None, *, final=None):
         raise
 
 
+def _paper_card(activity, bot, status, names):
+    phase = {"running": "进行中", "completed": "已完成", "failed": "失败", "cancelled": "已停止"}[activity["status"]]
+    count = activity.get("count")
+    summary = f"{phase}，返回 {count} 条候选" if count is not None else phase
+    return {"id": f"paper-activity:{activity['id']}", "title": activity.get("label", "搜索论文") + " · " + activity["query"],
+            "text": "\n".join([summary, *(f"- {title}" for title in activity["titles"])]),
+            "summary": summary, "category": "论文检索", "ts": activity["ts"], "paperActivity": activity,
+            "canvasDraft": True, "dispatchStatus": status, "canvasRail": bot,
+            **({"canvasGroup": names[bot]} if len(names) > 1 else {})}
+
+
 def canvas(project, feature):
     project_bots = features.list_features(project, project)
     bot_sessions = {bot["botSessionId"]: bot["label"] for bot in project_bots if bot.get("botSessionId")}
@@ -439,7 +453,10 @@ def canvas(project, feature):
         delivered_jobs = db.execute(f"""SELECT {columns} FROM labweave_bot_dispatches AS job
             WHERE project=? AND feature IN ({slots}) AND record_id<>'' AND EXISTS (
                 SELECT 1 FROM labweave_bot_canvas_drafts AS draft
-                WHERE draft.project=job.project AND draft.dispatch=job.id AND draft.card<>'worker-result')
+                WHERE draft.project=job.project AND draft.dispatch=job.id AND draft.card<>'worker-result'
+                UNION ALL SELECT 1 FROM labweave_project_flow activity
+                    WHERE activity.project=job.project AND activity.kind='paper-activity'
+                      AND json_extract(activity.payload,'$.taskId')=job.id)
             ORDER BY updated_at DESC""", (project, *names)).fetchall()
         canvas_jobs += delivered_jobs
         own_jobs = db.execute(f"""SELECT {columns} FROM labweave_bot_dispatches
@@ -484,6 +501,8 @@ def canvas(project, feature):
                       **json.loads(media or "{}"), "canvasRail": bot,
                       **({"canvasGroup": names[bot]} if len(names) > 1 else {})}
                      for card, label, body, category, updated, media in drafts]
+            cards.extend(_paper_card(activity, bot, status, names)
+                         for activity in project_flow.paper_activities(db, project, task=identity))
             origin = db.execute("""SELECT link.request_id,flow.kind,flow.payload,link.dependencies,previous.record_id
                 FROM labweave_bot_dispatch_links AS link
                 LEFT JOIN labweave_project_flow AS flow ON flow.project=link.project
@@ -522,7 +541,7 @@ def canvas(project, feature):
                 continue
             if record:
                 cards = [card for card in cards if card["id"] != f"draft:{identity}:worker-result"]
-            elif not drafts:
+            elif not cards:
                 cards.append({**final, "id": f"draft:{identity}:overview", "text": answer or public_task})
             elif answer and status in ("needs_follow_up", "completed") and all(card["text"] != answer for card in cards):
                 cards.insert(0, final)
@@ -539,6 +558,9 @@ def canvas(project, feature):
                 card["taskRecordId"] = record
                 card["previousTaskRecordId"] = (origin[4] or "") if origin else ""
             items.extend(cards)
+        for bot in names:
+            items.extend(_paper_card(activity, bot, activity["status"], names)
+                         for activity in project_flow.paper_activities(db, project, bot=bot))
     return {"active": sum(job[2] in ("queued", "running") for job in canvas_jobs), "drafts": items, "messages": messages}
 
 
@@ -565,6 +587,33 @@ def conversation_activity(projects):
                 for project, feature, identity, status, updated in rows]
 
 
+def conversation_finding(project, session):
+    with closing(workspace.database()) as db:
+        _ensure(db)
+        row = db.execute("""SELECT j.bot_name,d.title,d.body,m.media
+            FROM labweave_bot_dispatches j JOIN labweave_bot_canvas_drafts d
+              ON d.project=j.project AND d.dispatch=j.id
+            JOIN labweave_bot_draft_media m ON m.project=d.project AND m.dispatch=d.dispatch AND m.card=d.card
+            WHERE j.project=? AND j.parent_session=? AND j.status='running'
+              AND d.card<>'worker-result'
+            ORDER BY d.updated_at DESC,d.rowid DESC LIMIT 1""", (project, session)).fetchone()
+        if not row:
+            planned = db.execute("""SELECT d.bot_name,json_extract(f.payload,'$.publicTask'),
+                                                  json_extract(f.payload,'$.acceptance')
+                FROM labweave_bot_dispatches d JOIN labweave_project_flow f
+                  ON f.project=d.project AND f.event_key=d.id || ':queued'
+                WHERE d.project=? AND d.parent_session=? AND d.status IN ('queued','running')
+                  AND json_extract(f.payload,'$.publicTask') IS NOT NULL
+                ORDER BY d.rowid DESC LIMIT 1""", (project, session)).fetchone()
+            if planned:
+                return {"bot": planned[0], "title": planned[1], "summary": planned[2] or "",
+                        "sources": [], "planned": True}
+    if row:
+        media = json.loads(row[3])
+        return {"bot": row[0], "title": row[1], "summary": media.get("summary") or row[2][:240],
+                "text": row[2], "sources": media.get("sources", [])}
+
+
 def reference_candidates(project, query, feature=None, *, limit=12):
     with closing(workspace.database()) as db:
         _ensure(db)
@@ -575,6 +624,62 @@ def reference_candidates(project, query, feature=None, *, limit=12):
                           (project, feature, feature, query.lower(), limit))
         return [{"id": identity, "featureId": feature_id, "botName": name, "title": title}
                 for identity, feature_id, name, title in rows]
+
+
+def saved_review(project, session):
+    """Read the latest dispatch group belonging to the initiating conversation."""
+    with closing(workspace.database()) as db:
+        _ensure(db)
+        db.execute("BEGIN")
+        group = db.execute("""SELECT l.request_id FROM labweave_bot_dispatches d
+            LEFT JOIN labweave_bot_dispatch_links l ON l.project=d.project AND l.dispatch=d.id
+            WHERE d.project=? AND d.parent_session=? ORDER BY d.rowid DESC LIMIT 1""",
+            (project, session)).fetchone()
+        if not group or not group[0]:
+            return []
+        if db.execute("SELECT 1 FROM labweave_project_flow WHERE project=? AND event_key=? AND kind='withdrawn'",
+                      (project, f"input:{session}:{group[0]}")).fetchone():
+            return []
+        rows = db.execute("""SELECT d.id,d.bot_name,d.status,d.record_id,l.dependencies,e.body
+            FROM labweave_bot_dispatches d JOIN labweave_bot_dispatch_links l
+              ON l.project=d.project AND l.dispatch=d.id
+            LEFT JOIN entities e ON e.project=d.project AND e.kind=d.feature AND e.id=d.record_id
+            WHERE d.project=? AND d.parent_session=? AND l.request_id=? ORDER BY d.rowid""",
+            (project, session, group[0])).fetchall()
+        result = []
+        for task, bot, status, record, dependencies, body in rows:
+            entry = json.loads(body) if body else {}
+            refs = []
+            missing = False
+            verified = set()
+            deps = json.loads(dependencies)
+            cards = [entry]
+            if deps and body:
+                cards.extend(json.loads(row[0]) for row in db.execute("""SELECT body FROM entities
+                    WHERE project=? AND id<>? AND json_extract(body,'$.dispatchId')=?""", (project, record, task)))
+            sources = {source["recordId"]: source for card in cards for source in card.get("sources", [])
+                       if source.get("recordId")}
+            for ref, source in sources.items():
+                target = ref and db.execute("SELECT body FROM entities WHERE project=? AND id=?", (project, ref)).fetchone()
+                if ref and not target:
+                    missing = True
+                if target:
+                    refs.append({"id": ref, "title": source.get("title") or "来源记录"})
+                    origin = json.loads(target[0]).get("dispatchId")
+                    verified.update(d[0] for d in rows if d[3] == ref or d[0] == origin)
+            stale = bool(deps and project_flow.changed_prerequisites(db, project, deps))
+            if deps:
+                watched = [record, *(card.get("id") for card in cards), *sources]
+                stale = stale or db.execute("""SELECT 1 FROM labweave_project_flow
+                    WHERE project=? AND kind='artifact' AND seq>(SELECT seq FROM labweave_project_flow
+                        WHERE project=? AND event_key=?)
+                    AND json_extract(payload,'$.action') IN ('updated','removed')
+                    AND json_extract(payload,'$.recordId') IN (SELECT value FROM json_each(?)) LIMIT 1""",
+                    (project, project, task + ":completed", json.dumps(watched))).fetchone()
+            result.append({"bot": bot, "status": status, "id": record if body else None,
+                           "title": entry.get("title"), "summary": entry.get("summary") or entry.get("text", "")[:600],
+                           "sources": refs, "verified": bool(deps and set(deps) <= verified and not stale and not missing)})
+        return result
 
 
 def view(project, *, summary=False, identity=None):

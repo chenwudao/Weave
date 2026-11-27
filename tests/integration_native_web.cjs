@@ -290,8 +290,69 @@ async function main() {
       ]
       await page.route(changesRoute, route => {
         const { sessionId } = route.request().postDataJSON()
-        return route.fulfill({ json: sessionId === first.sessionId ? events : [] })
+        return route.fulfill({ json: sessionId === first.sessionId ? { changes: events, finding: {
+          bot: '文献笔记', title: '检索方法对照', summary: '已定位原文中的评估方法。',
+          sources: [{ title: '查看原文', url: 'https://example.org/paper' }],
+        }, paperActivities: [
+          { id: 'read', label: '阅读论文', query: 'Ragas · 第 3 页', status: 'completed', titles: [] },
+          { id: 'search', label: '搜索论文', query: 'Ragas', status: 'completed', count: 1, titles: ['Ragas: Automated Evaluation'] },
+        ] } : [] })
       })
+      // This offline fixture has no model turn; give the inline renderer a native turn anchor.
+      await page.locator('[data-conversation-content][data-conversation-session]').last().evaluate(flow => {
+        const row = document.createElement('div')
+        row.dataset.chatFlowKind = 'user'
+        row.dataset.chatTurn = 'fixture'
+        const process = document.createElement('div')
+        process.dataset.chatFlowKind = 'turn-process'
+        process.dataset.chatTurn = 'fixture'
+        const toggle = document.createElement('button')
+        toggle.dataset.turnProcess = 'fixture'
+        toggle.setAttribute('aria-expanded', 'false')
+        toggle.textContent = '执行过程验收'
+        toggle.addEventListener('click', () => toggle.setAttribute('aria-expanded',
+          String(toggle.getAttribute('aria-expanded') === 'false')))
+        process.append(toggle)
+        const steps = document.createElement('div')
+        steps.dataset.stepProcess = 'true'
+        steps.dataset.chatTurn = 'fixture'
+        steps.innerHTML = '<button style="margin-left:22px;display:flex;gap:7px"><svg width="14" height="14"></svg><span style="font-size:14px">工具已更新</span></button>'
+        flow.append(row, process, steps)
+      })
+      const finding = page.locator('section[aria-label="Bot 阶段发现"]')
+      const toggle = page.getByRole('button', { name: '执行过程验收' })
+      await finding.waitFor({ state: 'attached' })
+      assert.equal(await finding.isVisible(), false)
+      await toggle.click()
+      await finding.getByText('检索方法对照').click()
+      const paper = page.getByRole('region', { name: '论文检索记录' })
+      const read = paper.locator('.lw-paper-step').filter({ hasText: 'Ragas · 第 3 页' })
+      await read.getByText('已完成', { exact: true }).waitFor()
+      assert.equal(await read.locator('svg').count(), 1)
+      await paper.getByText('搜索论文 · Ragas · 1 条候选', { exact: true }).click()
+      await paper.getByText('Ragas: Automated Evaluation', { exact: true }).waitFor()
+      const viewport = page.viewportSize()
+      for (const [width, zoom] of [[viewport.width, 1], [800, 1.25]]) {
+        await page.setViewportSize({ width, height: viewport.height })
+        await page.evaluate(value => { document.documentElement.style.zoom = String(value) }, zoom)
+        await finding.getByText('检索方法对照').waitFor()
+        assert.equal(await finding.getByRole('link').getAttribute('href'), 'https://example.org/paper')
+        assert.equal(await finding.locator('summary').first().evaluate(el => getComputedStyle(el).fontSize), '14px')
+        assert.equal(await finding.locator('summary .lw-process-chevron').count(), 1)
+        const positions = await finding.locator('summary > span:last-child').first().evaluate(el => [
+          el.getBoundingClientRect().left,
+          document.querySelector('[data-step-process][data-chat-turn="fixture"] button span').getBoundingClientRect().left,
+        ])
+        assert.ok(Math.abs(positions[0] - positions[1]) <= 2, positions.join(' vs '))
+
+        assert.ok(await finding.evaluate(el => el.scrollWidth <= el.clientWidth + 1))
+        assert.ok(await finding.evaluate(el => el.closest('.lw-conversation-progress')?.previousElementSibling?.matches('[data-step-process]')
+          && !el.closest('[data-slot="conversation.input.dock"]')))
+      }
+      await toggle.click()
+      await finding.waitFor({ state: 'hidden' })
+      await page.evaluate(() => { document.documentElement.style.zoom = '' })
+      await page.setViewportSize(viewport)
       const changeCard = page.locator('.lw-project-file-changes')
       await changeCard.getByText('2 个文件', { exact: true }).waitFor()
       const dimensions = await changeCard.evaluate(card => {
@@ -317,7 +378,7 @@ async function main() {
       await changeCard.waitFor({ state: 'hidden' })
       await page.waitForResponse(response => response.url().endsWith('/api/labweave/project-file-changes'))
       assert.equal(await changeCard.count(), 0)
-      execFileSync(python, ['-c', [
+      const saveHistory = entries => execFileSync(python, ['-c', [
         'import json, sys',
         'from pathlib import Path',
         'sys.path.insert(0, sys.argv[1])',
@@ -325,7 +386,11 @@ async function main() {
         'workspace.DATA = Path(sys.argv[2])',
         'for event in reversed(json.loads(sys.argv[5])):',
         '    project_flow.record_file_changes(sys.argv[3], dict(sessionId=sys.argv[4], messageId=str(event["id"]), files=event["files"]))',
-      ].join('\n'), path.join(__dirname, '..', 'demo', 'api'), path.join(root, 'data'), first.scope, first.sessionId, JSON.stringify(events)])
+      ].join('\n'), path.join(__dirname, '..', 'demo', 'api'), path.join(root, 'data'), first.scope, first.sessionId, JSON.stringify(entries)])
+      const earlier = Array.from({ length: 28 }, (_, index) => ({
+        id: `earlier-${index}`, files: [{ path: `outputs/earlier-${index}.md`, action: 'added' }],
+      }))
+      saveHistory([...events, ...earlier])
       await button('工具').click()
       const right = page.locator('[data-rightbar-col]')
       await right.getByRole('button', { name: '新标签页', exact: true }).click()
@@ -334,8 +399,13 @@ async function main() {
       await history.getByText('outputs/old.md', { exact: true }).waitFor()
       assert.equal(await history.getByText('outputs/report.md', { exact: true }).count(), 3)
       assert.equal(await history.getByText('删除', { exact: true }).count(), 1)
+      await history.getByRole('button', { name: '加载更早的变更' }).click()
+      await history.getByText('outputs/earlier-27.md', { exact: true }).waitFor()
       events.unshift({ id: 4, files: [{ path: 'outputs/new.md', action: 'added' }] })
+      saveHistory(events.slice(0, 1))
       await changeCard.getByText('1 个文件', { exact: true }).waitFor()
+      await history.getByText('outputs/new.md', { exact: true }).waitFor()
+      assert.equal(await history.getByRole('list', { name: '项目文件变更记录' }).count(), 32)
       await page.setViewportSize({ width: 900, height: 700 })
       await page.evaluate(() => { document.documentElement.style.zoom = '125%' })
       await page.waitForFunction(element => {

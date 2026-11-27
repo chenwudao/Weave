@@ -326,7 +326,8 @@ export function registerComposer(ctx, { refs, rows, call, ownerRoute, delegation
               botId: actor.bot.id === 'chat' ? undefined : actor.bot.id,
               key: message.id + ':' + actor.row.scope + ':' + actor.bot.id }, signal)
             result = { status: transfer.status, answer: transfer.status === 'ready' ? '已登记转交，将在项目对话发送。' : '已登记转交，等待你确认。' }
-          } else result = await delegation.invite(agent, actor, assignment, signal, modelSelection, message.id, assessment?.research)
+          } else result = await delegation.invite(agent, actor, assignment, signal, modelSelection, message.id,
+            assessment?.research, assessment?.exampleFirst)
         }
         catch (error) { signal.throwIfAborted(); result = { status: 'blocked', reason: error.message } }
         return {

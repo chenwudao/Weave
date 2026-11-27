@@ -1,4 +1,5 @@
 // DSH 0.2.2-rc.2 supplies the calling Agent on each native tool execution.
+import { randomUUID } from 'node:crypto'
 import { registerProjectTools } from './project-tools.js'
 import { botAssignments } from './bot-assignments.js'
 import { historyReader, intervalSeconds, workerActivity } from './assistant-history.js'
@@ -139,12 +140,12 @@ export async function registerNative(ctx, port, token) {
     return result
   })
   ownerRoute('catalog', ['GET'], sync)
-  ownerRoute('project-file-changes', ['POST'], ({ sessionId }) => {
+  ownerRoute('project-file-changes', ['POST'], ({ sessionId, includeFinding }) => {
     const workspace = sessionWorkspace(registry, sessionId)
     if (!rows.some(row => row.workspaceId === workspace.id && row.scope !== 'global')) {
       throw failure('请先选择项目对话。', 403)
     }
-    return call('project-flow', { workspace, action: 'file-changes', sessionId })
+    return call('project-flow', { workspace, action: 'file-changes', sessionId, includeFinding: includeFinding === true })
   })
   registerConversationActivity(ctx, { rows: () => rows, call, ownerRoute })
   if (ctx.llm) await registerAssistantRouting(ctx, {
@@ -452,6 +453,7 @@ export async function registerNative(ctx, port, token) {
         ? 'This is the global assistant (chat only). Call labweave_global_memory_search to recall past preferences, and call labweave_global_memory_write (use pinned:true for core preferences) or labweave_global_memory_pin to preserve durable cross-project norms. Use labweave_feature_create / labweave_feature_delete / labweave_rename_feature with an explicit projectId or "all" when managing project features.'
         : 'This is a project conversation. The Tools sidebar shows each work-tree directory and Git status. Use labweave_workspace_trees for directories and labweave_git_status for repositories. Read labweave_project_get_context before substantive project work. You may manage features within this project via labweave_feature_create / labweave_feature_delete / labweave_rename_feature.'
       context += ' The product is Weave. When introducing yourself, use the configured assistant or Feature Bot display name. Describe actions in everyday language; use exact technical names when the user asks for implementation details.'
+      context += ' For a new open-ended question answerable in chat, default to one usable example and end the reply with a specific offer to continue. Apply project research and canvas procedures when the user requests the work. When the user accepts the offer, deliver the proposed next step. Honor requests for a full answer or no follow-up.'
       context += ' In routine user-facing replies, refer to projects and Feature Bots by display name. Confirm successful creation with the names and where to find the result. Keep internal project and Feature Bot IDs in tool calls unless the user explicitly asks for the IDs.'
       if (row.scope !== 'global') {
         context += ' Describe file additions, edits or deletions only for real files in this project directory. Report saved cards, goals and decisions by their visible project names when relevant. Do not describe their persistence as file operations or expose internal application files.'
@@ -532,26 +534,18 @@ export async function registerNative(ctx, port, token) {
           const state = leaderRequest(exec.agent)
           if (!state) throw failure('请先在全局对话说明项目创建需求。', 409)
           const creation = state.decision.creation
-          const needsQuestion = !['named_only', 'start'].includes(creation?.kind)
-          if (needsQuestion && state.projectSetup) {
-            if (state.projectSetup.result) return state.projectSetup.result
-            throw failure('正在确认新项目的研究方向和推进范围。', 409)
-          }
-          const setup = needsQuestion ? (state.projectSetup = {}) : null
+          if (state.projectSetup?.result) return state.projectSetup.result
+          if (state.projectSetup) throw failure('项目正在创建，请等待结果。', 409)
+          const setup = state.projectSetup = {}
           try {
             const created = await call('tool', { workspace, tool: tool.name,
-              args: setup ? { ...args, name: creation?.name || '待确定方向的研究项目' } : args }, exec.signal)
-            const project = JSON.parse(created.text)
-            if (setup) setup.projectId = project.id
+              args: creation?.name ? { ...args, name: creation.name } : args }, exec.signal)
+            setup.projectId = JSON.parse(created.text).id
+            setup.result = created.text
             await refreshAfterWrite()
-            if (!setup) return created.text
-            setup.answer = await intake.confirmCreation(exec.agent, project.name, exec.signal)
-            setup.result = JSON.stringify({ ...project, setup: setup.answer.task
-              ? { ...setup.answer, status: 'confirmed' }
-              : { ...setup.answer, status: setup.answer.status || 'not_started' } })
             return setup.result
           } catch (error) {
-            if (setup && !setup.projectId) delete state.projectSetup
+            if (!setup.projectId) delete state.projectSetup
             throw error
           }
         }
@@ -578,9 +572,32 @@ export async function registerNative(ctx, port, token) {
           return result.text
         })
         const experiment = tool.name === 'experiment_record'
-        const result = await call('tool', { workspace, tool: tool.name,
+        const invoke = () => call('tool', { workspace, tool: tool.name,
           args: experiment && delegated ? { ...args, taskId: delegated.childId } : args,
           ...(experiment && { featureId: source?.id, sessionId: exec.agent.session.id }) }, exec.signal)
+        let result
+        const paperAction = tool.name === 'paper_search' ? { label: '搜索论文', query: args.query }
+          : tool.name === 'paper_lookup' ? { label: '核对论文编号', query: args.id }
+          : tool.name === 'paper_neighbors' ? { label: '追踪引文', query: args.id }
+          : tool.name === 'paper_read' && (args.arxivId || args.id) ? { label: '阅读论文', query: (args.arxivId || '项目 PDF') + ' · 第 ' + (args.page || 1) + ' 页' }
+          : null
+        if (row.scope !== 'global' && typeof paperAction?.query === 'string' && paperAction.query.trim()) {
+          const activity = { workspace, action: 'paper-activity', activityId: randomUUID(), ...paperAction,
+            sessionId: delegated?.parentId || exec.agent.session.id, taskId: delegated?.childId, botId: source?.id }
+          const report = (status, details = {}) => call('project-flow', { ...activity, status, ...details }).catch(() => {})
+          await report('running')
+          try {
+            result = await invoke()
+            const payload = JSON.parse(result.text)
+            const papers = Array.isArray(payload) ? payload : payload.papers || (payload.paper ? [payload.paper] : null)
+            const locator = tool.name === 'paper_read' && payload.source?.title
+              ? { query: payload.source.title + ' · 第 ' + (payload.page || args.page || 1) + ' 页' } : {}
+            await report('completed', papers ? { count: papers.length, titles: papers.slice(0, 4).map(paper => paper.text) } : locator)
+          } catch (error) {
+            await report(exec.signal.aborted ? 'cancelled' : 'failed')
+            throw error
+          }
+        } else result = await invoke()
         if (row.scope !== 'global' && ['memory_write', 'memory_update'].includes(tool.name)) {
           const memory = JSON.parse(result.text)
           if (['rule', 'decision'].includes(memory.category) && memory.content) {

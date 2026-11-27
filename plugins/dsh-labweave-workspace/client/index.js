@@ -417,7 +417,7 @@ window.__ModuleLoader__.load({
       pluginMarket: 'statusProvided incompatible noCompatibleVersion exempted',
       pluginRecommendations: 'version-error restart-required',
       'settings.account': 'onboardingBrand onboardingIntroduction onboardingCreditDescription onboardingProcessDescription onboardingNoCreditDescription backToHarness settingsSignedOutTitle settingsSignedOutDescription quotaDescription',
-      'settings.models': 'onboardingTitle onboardingProvider onboardingChooseProvider keyHelp',
+      'settings.models': 'onboardingTitle onboardingProvider onboardingChooseProvider keyHelp weaveFirstIntro weaveFirstKey weaveFirstSteps weaveFirstLater weaveFirstLocal',
       shortcuts: 'web-document',
       sidebarBrowser: 'error.application-origin',
       sidebarOffice: 'unavailable',
@@ -441,6 +441,11 @@ window.__ModuleLoader__.load({
         ru: 'Сначала используются сохранённые учётные данные. Резервные переменные по порядку: {env}. Источники — окружение запуска, затем файлы .env в рабочем каталоге и в каталоге настроек среды выполнения.',
         pt: 'As credenciais salvas têm prioridade. Variáveis alternativas, em ordem: {env}. São consultados o ambiente de inicialização e, depois, os arquivos .env do diretório de trabalho e do diretório de configuração do ambiente de execução.',
       },
+      weaveFirstIntro: {"zh": "连接模型后，就可以在 Weave 里提问、分析资料和分派项目任务。", "en": "Connect a model to ask questions, analyse sources and delegate project tasks in Weave.", "ja": "モデルを接続すると、質問、資料の分析、プロジェクト作業の分担ができます。", "de": "Verbinden Sie ein Modell, um Fragen zu stellen, Quellen auszuwerten und Projektaufgaben zu verteilen.", "es": "Conecta un modelo para hacer preguntas, analizar fuentes y delegar tareas.", "fr": "Connectez un modèle pour poser des questions, analyser vos sources et déléguer des tâches.", "pt": "Conecte um modelo para fazer perguntas, analisar fontes e delegar tarefas.", "ru": "Подключите модель, чтобы задавать вопросы, анализировать материалы и поручать задачи."},
+      weaveFirstKey: {"zh": "第一次使用 API Key？", "en": "New to API keys?", "ja": "API キーを初めて使いますか？", "de": "Zum ersten Mal einen API-Schlüssel verwenden?", "es": "¿Es tu primera clave de API?", "fr": "Première utilisation d’une clé API ?", "pt": "É sua primeira chave de API?", "ru": "Впервые используете ключ API?"},
+      weaveFirstSteps: {"zh": "在模型供应商的开发者控制台创建并复制 API Key。在下方选择同一家供应商，把密钥粘贴到 API Key 栏，再点“保存并继续”。", "en": "Create and copy a key in your provider’s developer console. Select the same provider below, paste the key into the API Key field, then save.", "ja": "提供元の開発者コンソールでキーを作成してコピーします。下で同じ提供元を選び、API Key 欄に貼り付けて保存します。", "de": "Erstellen und kopieren Sie einen Schlüssel in der Entwicklerkonsole Ihres Anbieters. Wählen Sie unten denselben Anbieter, fügen Sie den Schlüssel ein und speichern Sie.", "es": "Crea y copia una clave en la consola del proveedor. Elige ese proveedor abajo, pega la clave y guarda.", "fr": "Créez et copiez une clé dans la console de votre fournisseur. Sélectionnez ce fournisseur ci-dessous, collez la clé et enregistrez.", "pt": "Crie e copie uma chave no console do provedor. Selecione o mesmo provedor abaixo, cole a chave e salve.", "ru": "Создайте ключ в консоли разработчика поставщика и скопируйте его. Выберите того же поставщика ниже, вставьте ключ и сохраните."},
+      weaveFirstLater: {"zh": "暂时没有密钥？", "en": "No key yet?", "ja": "まだキーがありませんか？", "de": "Noch keinen Schlüssel?", "es": "¿Aún no tienes clave?", "fr": "Pas encore de clé ?", "pt": "Ainda não tem chave?", "ru": "Пока нет ключа?"},
+      weaveFirstLocal: {"zh": "选“稍后配置”可先创建项目、整理本地资料。准备好密钥后，打开“模型与 API”完成配置，再回到项目对话提问。", "en": "Choose Later to create a project and organise local files. When you have a key, open Models & API, configure the model and return to project chat.", "ja": "後で設定を選ぶと、先にプロジェクトを作成して資料を整理できます。キーを用意したらモデルと API の設定を開いてください。", "de": "Sie können später konfigurieren und jetzt Projekte erstellen und lokale Dateien organisieren. Öffnen Sie anschließend die Modell- und API-Einstellungen.", "es": "Puedes posponer la configuración para crear proyectos y organizar archivos locales. Después abre los ajustes de modelos y API.", "fr": "Reportez la configuration pour créer un projet et organiser vos fichiers. Vous pourrez ensuite ouvrir les paramètres des modèles et API.", "pt": "Adie a configuração para criar projetos e organizar arquivos locais. Depois abra as configurações de modelos e API.", "ru": "Отложите настройку, чтобы создать проект и упорядочить локальные файлы. Позже откройте настройки моделей и API."},
       onboardingTitle: {
         zh: '配置模型 API', en: 'Configure model API', ja: 'モデル API を設定',
         de: 'Modell-API einrichten', es: 'Configurar API del modelo', fr: 'Configurer l’API du modèle',
@@ -927,6 +932,11 @@ window.__ModuleLoader__.load({
       .lw-worker-steps li{display:flex;align-items:center;gap:7px;min-width:0;padding:3px 0;overflow-wrap:anywhere}
       .lw-worker-steps li>.lw-icon{color:var(--dsw-alias-label-secondary,GrayText)}
       .lw-worker-steps small{flex:none;margin-inline-start:auto;color:var(--dsw-alias-label-secondary,GrayText)}
+      .lw-paper-steps>.lw-worker-steps{border:0;margin:0;padding:0}
+      .lw-worker-steps .lw-paper-step{font-size:var(--dsw-font-size-sm,13px);line-height:1.5;align-items:flex-start;color:var(--dsw-alias-label-secondary,GrayText)}
+      .lw-paper-step>span,.lw-paper-step>details{min-width:0}
+      .lw-paper-step .lw-icon{flex:none;width:14px;height:14px;margin-top:3px}
+      .lw-paper-step ul{padding-inline-start:1em}
       .lw-worker-steps [data-status=failed] small{color:var(--dsw-alias-state-error-primary,#b34835)}
       .lw-bot-msg .lw-md,.lw-speaker-reply .lw-md{white-space:normal}
       .lw-md-table{overflow:auto;margin-block:8px}
@@ -1029,6 +1039,26 @@ window.__ModuleLoader__.load({
       /* Right Sidebar Links & Clean Hero Chrome */
       .lw-hero-ctx-btn{border:0;background:transparent;padding:2px 6px;border-radius:6px;font:inherit;font-size:var(--lw-ui-sm);line-height:1.45;color:var(--dsw-alias-label-secondary);cursor:pointer;text-align:start;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .lw-hero-ctx-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+      .lw-first-model-guide p{margin:.35em 0 .7em}.lw-first-model-guide summary{cursor:pointer;padding:.25em 0}.lw-first-model-guide details p{color:var(--dsw-alias-label-secondary);line-height:1.5}
+      .lw-conversation-progress{min-width:0}
+      .lw-project-finding{min-width:0;margin:0;padding:0;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary,inherit);font:inherit}
+      .lw-project-finding details,.lw-project-finding>p{margin:0;padding:4px 0}
+      .lw-project-finding summary{cursor:pointer}
+      .lw-project-finding details>div,.lw-project-finding details>ul{margin:3px 0 3px 1.2em}
+      .lw-conversation-progress,.lw-paper-steps{font-size:var(--lw-process-size,var(--dsw-font-size-sm,13px));line-height:var(--lw-process-leading,1.5);color:var(--lw-process-color,var(--dsw-alias-label-secondary,GrayText))}
+      .lw-conversation-progress .lw-paper-step,.lw-conversation-progress .lw-project-finding,.lw-paper-step small{font:inherit;color:inherit}
+      .lw-project-finding summary,.lw-paper-step summary{list-style:none;display:flex;align-items:baseline;gap:6px;cursor:pointer}
+      .lw-project-finding summary::-webkit-details-marker,.lw-paper-step summary::-webkit-details-marker{display:none}
+      .lw-process-chevron{flex:none;display:inline-flex;align-self:baseline}
+      .lw-process-chevron svg{width:12px;height:12px;margin:0}
+      details[open]>summary>.lw-process-chevron{transform:rotate(90deg)}
+      .lw-conversation-progress{padding-inline-start:var(--lw-process-inset,0px)}
+      .lw-conversation-progress .lw-project-finding summary,.lw-conversation-progress .lw-paper-step{gap:0}
+      .lw-conversation-progress .lw-process-chevron,.lw-conversation-progress .lw-paper-step>.lw-icon{box-sizing:border-box;flex:0 0 var(--lw-process-gutter,20px);width:var(--lw-process-gutter,20px)}
+      .lw-conversation-progress .lw-paper-step>.lw-icon{padding-inline-end:max(0px,calc(var(--lw-process-gutter,20px) - 14px))}
+      .lw-conversation-progress details[open]>summary>.lw-process-chevron{transform:none}
+      .lw-conversation-progress details[open]>summary>.lw-process-chevron svg{transform:rotate(90deg)}
+      .lw-conversation-progress:empty{display:none}
       .lw-project-file-changes{display:flex;flex:none;flex-direction:column;box-sizing:border-box;width:min(100%,740px);min-width:0;margin:4px auto 0;overflow:hidden;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg,12px);background:var(--dsw-alias-bg-layer-1,Canvas);color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family,inherit)}
       .lw-file-change-summary{display:flex;align-items:center;background:var(--dsw-alias-card-fill,var(--dsw-alias-bg-layer-1))}
       .lw-file-change-header{display:flex;flex:1;min-width:0;align-items:center;gap:10px;box-sizing:border-box;height:60px;padding:8px 10px;border:0;background:transparent;color:inherit;font:inherit;text-align:start;cursor:pointer}
@@ -2148,6 +2178,10 @@ window.__ModuleLoader__.load({
             Btn({ onClick: () => { void controller.load() } }, t('retry')),
             Btn({ onClick: close }, t('onboardingLater')))
           : h('form', { className: 'lw-form', onSubmit: save },
+            !hasModel && h('section', { className: 'lw-first-model-guide' },
+              h('p', null, t('weaveFirstIntro')),
+              h('details', null, h('summary', null, t('weaveFirstKey')), h('p', null, t('weaveFirstSteps'))),
+              h('details', null, h('summary', null, t('weaveFirstLater')), h('p', null, t('weaveFirstLocal')))),
             h('label', null, t('onboardingProvider'), h(Select, { value: provider, innerRef: providerInput,
               ariaLabel: t('onboardingProvider'), placeholder: t('onboardingChooseProvider'),
               disabled: busy || progress.current.profile || !state.writable,
@@ -4017,7 +4051,25 @@ window.__ModuleLoader__.load({
     }
     const messageTime = ({ time }) => (typeof time === 'number' ? time : Date.parse(time)) || 0
 
-    function ConversationActivity({ activity, onToggle }) {
+    function processSummary(label) {
+      return h('summary', null, h('span', { className: 'lw-process-chevron', 'aria-hidden': true },
+        h(Icon, { name: 'right' })), h('span', null, label))
+    }
+
+    function PaperActivityRow({ item }) {
+      const status = { running: '进行中', completed: '已完成', failed: '失败', cancelled: '已停止' }[item.status]
+      const label = [item.label || LW('搜索论文'), item.query, item.count == null ? '' : item.count + LW(' 条候选')]
+        .filter(Boolean).join(' · ')
+      return h('li', { className: 'lw-paper-step', 'data-status': item.status },
+        !item.titles?.length && h(Icon, { name: 'plugin' }),
+        item.titles?.length
+          ? h('details', null, processSummary(label), h('ul', null,
+            item.titles.map((title, index) => h('li', { key: index }, title))))
+          : h('span', null, label),
+        h('small', null, LW(status || '状态未知')))
+    }
+
+    function ConversationActivity({ activity, paperActivities = [], onToggle }) {
       const phase = { preparing: '正在准备回复', reasoning: '正在梳理问题', reply: '正在生成回复',
         tool: '正在处理任务', approval: '等待你的确认' }[activity?.phase]
       const states = { running: '进行中', completed: '已完成', failed: '失败', stopped: '已停止' }
@@ -4036,7 +4088,8 @@ window.__ModuleLoader__.load({
           tools.map(tool => h('li', { key: tool.id, 'data-status': tool.status },
             h(Icon, { name: 'plugin' }), h('span', null, tool.title),
             h('small', null, LW(states[tool.status] || '状态未知')))),
-          !tools.length && !thoughtStatus && h('li', { className: 'lw-hint' },
+          paperActivities.map(item => h(PaperActivityRow, { key: item.id, item })),
+          !tools.length && !thoughtStatus && !paperActivities.length && h('li', { className: 'lw-hint' },
             LW(activity === undefined ? '正在读取执行过程…' : '暂无执行步骤。'))))
     }
 
@@ -4046,7 +4099,7 @@ window.__ModuleLoader__.load({
         record && h(Icon, { name: 'right' }))
     }
 
-    function WorkerDispatchActivity({ workspaceId, id, status }) {
+    function WorkerDispatchActivity({ workspaceId, id, status, paperActivities }) {
       const [open, setOpen] = React.useState(false)
       const [activity, setActivity] = React.useState()
       const active = ['queued', 'running'].includes(status)
@@ -4068,7 +4121,7 @@ window.__ModuleLoader__.load({
         void refresh()
         return () => { controller.abort(); clearTimeout(timer) }
       }, [open, active, workspaceId, id])
-      return h(ConversationActivity, { activity, onToggle: event => setOpen(event.currentTarget.open) })
+      return h(ConversationActivity, { activity, paperActivities, onToggle: event => setOpen(event.currentTarget.open) })
     }
 
     const botPaneLayoutKey = 'weave.bot.pane-layout'
@@ -4528,8 +4581,9 @@ window.__ModuleLoader__.load({
                   onClick: () => openTaskSource(task.parentSessionId, task.sourceMessageId) }, LW('回到发起对话')),
                 task.parentSessionId && !task.originBotLabel && !featMeta.archived && h(BotMessageAction, { icon: 'chat', disabled: followSending,
                   onClick: () => changeDestination(task) }, LW('跟进任务')))),
-            h(WorkerDispatchActivity, { workspaceId, id: task.dispatchId, status: task.dispatchStatus })),
-          msg.items.slice(1).sort((a, b) => messageTime({ time: a.ts }) - messageTime({ time: b.ts })).map(item => {
+            h(WorkerDispatchActivity, { workspaceId, id: task.dispatchId, status: task.dispatchStatus,
+              paperActivities: msg.items.flatMap(item => item.paperActivity ? [item.paperActivity] : []) })),
+          msg.items.slice(1).filter(item => !item.paperActivity).sort((a, b) => messageTime({ time: a.ts }) - messageTime({ time: b.ts })).map(item => {
             if (item.taskFollowUp) return h('article', { key: item.id, className: 'lw-bot-msg', 'data-role': 'user', 'aria-label': LW('任务跟进') },
               h('div', { className: 'lw-bot-msg-meta' }, LW('你 · 跟进'), h('time', { dateTime: item.ts }, fmtDateTime(item.ts))),
               conversationText(item.text),
@@ -4820,7 +4874,7 @@ window.__ModuleLoader__.load({
               followScroll.current = log.scrollHeight - log.scrollTop - log.clientHeight < 56
             } },
               h('div', { className: 'lw-bot-conversation-log-inner' },
-                  (messages.length > 0 || progress) && h('div', { className: 'lw-bot-turns', 'aria-label': title + LW(' 对话记录') },
+                  (messages.length > 0 || progress || fileChanges) && h('div', { className: 'lw-bot-turns', 'aria-label': title + LW(' 对话记录') },
                     messages.map(msg => {
                       if (msg.role === 'speaker') return h(SpeakerReply, { key: msg.id, label: msg.label, text: publicToolText(msg.text) })
                       if (msg.role === 'process') return h(ConversationActivity, { key: msg.id, activity: msg.activity })
@@ -4840,9 +4894,8 @@ window.__ModuleLoader__.load({
                             }) }))),
                       msg.role === 'assistant' ? h(BotMarkdown, { source: msg.text }) : conversationText(msg.text))
                     }),
-                    progress && h(TurnProgress, { progress, onApproval: bot.openApproval })))),
-
-          fileChanges,
+                    progress && h(TurnProgress, { progress, onApproval: bot.openApproval }),
+                    fileChanges))),
           bot.awaitingAnswer && h('div', { className: 'lw-bot-task-reply' },
             h('span', null, LW('等待你的确认')),
             h(BotMessageAction, { icon: 'chat', onClick: bot.openApproval }, LW('打开提问卡'))),
@@ -6266,6 +6319,59 @@ window.__ModuleLoader__.load({
         h('span', { 'data-action': file.action }, LW(fileChangeLabels[file.action]))))
       }
       function ProjectConversationFiles({ sessionId, binding }) {
+        const [finding, setFinding] = React.useState(null)
+        const [coordination, setCoordination] = React.useState([])
+        const [paperActivities, setPaperActivities] = React.useState([])
+        const [flowTarget, setFlowTarget] = React.useState(null)
+        React.useEffect(() => {
+          if (!binding) return
+          const selector = '[data-conversation-content][data-conversation-session="' + CSS.escape(sessionId) + '"]'
+          const host = document.createElement('div')
+          host.className = 'lw-conversation-progress'
+          function attach() {
+            const flow = [...document.querySelectorAll(selector)].find(el => el.getClientRects().length)
+            const message = flow && [...flow.querySelectorAll('[data-chat-flow-kind="user"]')].at(-1)
+            if (!message) return
+            const turn = message.dataset.chatTurn
+            const process = turn && [...flow.querySelectorAll('[data-chat-flow-kind="turn-process"]')]
+              .find(el => el.dataset.chatTurn === turn)
+            const toggle = process?.querySelector('button[data-turn-process]')
+            host.hidden = toggle?.getAttribute('aria-expanded') === 'false'
+            host.classList.toggle('lw-conversation-progress--native', Boolean(toggle))
+            const steps = turn && [...flow.querySelectorAll('[data-step-process][data-chat-turn]')]
+              .filter(el => el.dataset.chatTurn === turn)
+            const lastStep = steps?.at?.(-1)
+            const anchor = lastStep || process || message
+            if (anchor.nextElementSibling !== host) anchor.after(host)
+            const labels = lastStep?.querySelectorAll('[data-disclosure-row] span,button span')
+            const sample = labels && [...labels].find(el => el.textContent.trim() && !el.querySelector('svg,span') &&
+              el.getBoundingClientRect().width > 0) || toggle?.querySelector('span')
+            if (sample) {
+              const font = getComputedStyle(sample)
+              const label = sample.getBoundingClientRect()
+              const row = sample.closest('[data-disclosure-row],button')
+              const icon = row?.querySelector('svg')?.getBoundingClientRect()
+              if (!host.hidden && host.offsetWidth && label.width && row !== toggle) {
+                const bounds = host.getBoundingClientRect()
+                const scale = bounds.width / host.offsetWidth || 1
+                const gutter = icon?.width && icon.right <= label.left ? (label.left - icon.left) / scale : 20
+                host.style.setProperty('--lw-process-gutter', gutter + 'px')
+                host.style.setProperty('--lw-process-inset', Math.max(0, (label.left - bounds.left) / scale - gutter) + 'px')
+              }
+              host.style.setProperty('--lw-process-size', font.fontSize)
+              host.style.setProperty('--lw-process-leading', font.lineHeight)
+              host.style.setProperty('--lw-process-color', font.color)
+            }
+          }
+          attach()
+          setFlowTarget(host)
+          const observer = new MutationObserver(attach)
+          observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-expanded'] })
+          const resize = new ResizeObserver(attach)
+          if (host.parentElement) resize.observe(host.parentElement)
+          window.addEventListener('resize', attach)
+          return () => { window.removeEventListener('resize', attach); resize.disconnect(); observer.disconnect(); host.remove() }
+        }, [binding, sessionId])
         const [changes, setChanges] = React.useState([])
         const [nativeChanges, setNativeChanges] = React.useState(() => new Map())
         const [expanded, setExpanded] = React.useState(false)
@@ -6319,8 +6425,13 @@ window.__ModuleLoader__.load({
             if (loading || document.hidden) return
             loading = true
             try {
-              const events = await api('project-file-changes', { sessionId }, controller.signal)
-              if (!controller.signal.aborted) setChanges(events)
+              const result = await api('project-file-changes', { sessionId, includeFinding: true }, controller.signal)
+              if (!controller.signal.aborted) {
+                setChanges(Array.isArray(result) ? result : result.changes)
+                setFinding(result.finding || null)
+                setCoordination(result.coordination || [])
+                setPaperActivities(result.paperActivities || [])
+              }
             } catch {} finally { loading = false }
           }
           void refresh()
@@ -6345,9 +6456,26 @@ window.__ModuleLoader__.load({
           setExpanded(false)
           try { sessionStorage.setItem(dismissalKey, String(through)) } catch {}
         }
+        const inlineProgress = h(React.Fragment, null,
+          coordination.length > 0 && h('section', { className: 'lw-project-finding', 'aria-label': LW('项目主对话进展'), 'aria-live': 'polite' },
+            coordination.map(item => h('details', { key: item.id },
+              processSummary(LW('项目安排') + ' · ' + item.title),
+              h('div', null, item.summary),
+              h('div', null, LW('下一步') + ' · ' + item.nextStep)))),
+          finding && h('section', { className: 'lw-project-finding', 'aria-label': LW('Bot 阶段发现'), 'aria-live': 'polite' },
+            h('details', null,
+              processSummary(finding.bot + ' · ' + (finding.planned ? LW('分派计划')
+                : finding.sources?.length ? LW('阶段发现') : LW('进行中草稿')) + ' · ' + finding.title),
+              h('div', null, finding.summary),
+              finding.text && finding.text !== finding.summary && h('div', null, h(Markdown, { source: finding.text })),
+              h(BotSources, { item: finding }))),
+          paperActivities.length > 0 && h('section', { className: 'lw-paper-steps', 'aria-label': LW('论文检索记录') },
+            h('ul', { className: 'lw-worker-steps' },
+              paperActivities.map(item => h(PaperActivityRow, { key: item.id, item })))))
         return h(React.Fragment, null,
           binding && !approvals.size && h('style', null,
             scope + ' [data-chat-call-id]:has(:is([data-tool^="labweave_"],[data-tool^="mcp__labweave__"])){display:none!important}'),
+          binding ? flowTarget && ReactDOM.createPortal(inlineProgress, flowTarget) : inlineProgress,
           remaining.length > 0 && h('section', { className: 'lw-project-file-changes' },
             h('div', { className: 'lw-file-change-summary' }, h('button', { type: 'button', className: 'lw-file-change-header', 'aria-expanded': expanded,
               'aria-controls': listId, onClick: () => setExpanded(open => !open) },
@@ -7329,30 +7457,57 @@ window.__ModuleLoader__.load({
         },
       ]
       function ProjectFileChangeHistory({ row }) {
-        const { value, error } = useProject(row.workspaceId, 'files/changes', '', 5000)
         const sessions = useStore(ctx.sessions.list)
-        const [older, setOlder] = React.useState([])
-        const [olderBefore, setOlderBefore] = React.useState(undefined)
+        const [events, setEvents] = React.useState(null)
+        const [before, setBefore] = React.useState(null)
+        const [error, setError] = React.useState('')
         const [loading, setLoading] = React.useState(false)
         const [olderError, setOlderError] = React.useState('')
-        const before = olderBefore === undefined ? value?.nextBefore : olderBefore
-        const events = [...new Map([...(value?.events || []), ...older].map(event => [event.id, event])).values()]
-          .sort((a, b) => b.id - a.id)
+        React.useEffect(() => {
+          const controller = new AbortController()
+          let latest = null
+          let timer
+          async function refresh() {
+            let delay = 5000
+            try {
+              if (latest !== null && document.hidden) return
+              const page = await project(row.workspaceId, 'files/changes', latest === null ? {} : { after: latest }, controller.signal)
+              if (controller.signal.aborted) return
+              if (latest === null) {
+                latest = page.events[0]?.id ?? 0
+                setEvents(page.events)
+                setBefore(page.nextBefore)
+              } else if (page.events.length) {
+                latest = page.events.at(-1).id
+                const newestFirst = [...page.events].reverse()
+                setEvents(current => [...newestFirst, ...current])
+                if (page.hasMore) delay = 0
+              }
+              setError('')
+            } catch (failure) {
+              if (!controller.signal.aborted) setError(failure.message)
+            } finally {
+              if (!controller.signal.aborted) timer = setTimeout(refresh, delay)
+            }
+          }
+          refresh()
+          return () => { controller.abort(); clearTimeout(timer) }
+        }, [row.workspaceId])
         async function loadOlder() {
           setLoading(true)
           setOlderError('')
           try {
             const page = await project(row.workspaceId, 'files/changes', { before })
-            setOlder(current => [...current, ...page.events])
-            setOlderBefore(page.nextBefore)
+            setEvents(current => [...current, ...page.events])
+            setBefore(page.nextBefore)
           } catch (failure) { setOlderError(failure.message) }
           finally { setLoading(false) }
         }
         return h('section', { className: 'lw-rpane lw-file-change-history', 'aria-label': row.name + LW(' 项目文件变更') },
           error && h('p', { className: 'lw-hint', role: 'alert' }, error),
-          !value && !error && h('p', { className: 'lw-hint', role: 'status' }, LW('正在读取项目文件变更…')),
-          value && !events.length && h('p', { className: 'lw-hint', role: 'status' }, LW('本项目暂无文件变更记录。')),
-          events.map(event => h('section', { key: event.id, className: 'lw-rpane-card' },
+          !events && !error && h('p', { className: 'lw-hint', role: 'status' }, LW('正在读取项目文件变更…')),
+          events?.length === 0 && h('p', { className: 'lw-hint', role: 'status' }, LW('本项目暂无文件变更记录。')),
+          events?.map(event => h('section', { key: event.id, className: 'lw-rpane-card' },
             h('h3', null, h('time', { dateTime: event.createdAt }, fmtDateTime(event.createdAt))),
             sessions.byId[event.sessionId]?.title && h('span', { className: 'lw-hist-muted' }, sessions.byId[event.sessionId].title),
             h('ul', { 'aria-label': LW('项目文件变更记录') }, event.files.map(file => fileChangeRow(file))))),
